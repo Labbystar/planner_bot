@@ -1,27 +1,29 @@
 from aiogram import Router
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandObject, CommandStart
 from aiogram.types import Message
 
-from app.keyboards.menu import main_menu_keyboard
-from app.services.users import upsert_user, get_user
+from app.context import AppContext
+from app.keyboards.menu import main_menu_kb
+from app.keyboards.share import share_accept_kb
 
 router = Router()
 
-@router.message(CommandStart())
-async def cmd_start(message: Message):
-    await upsert_user(
+
+@router.message(CommandStart(deep_link=False))
+async def cmd_start(message: Message, app: AppContext) -> None:
+    await app.users_repo.upsert_user(
         user_id=message.from_user.id,
         username=message.from_user.username,
         full_name=message.from_user.full_name,
+        timezone_name=app.config.default_timezone,
     )
-
-    user = await get_user(message.from_user.id)
+    user = await app.users_repo.get_user(message.from_user.id)
 
     await message.answer(
-        f"Привет. Я planner-бот.\n\n"
-        f"Твоя таймзона: {user.timezone_name}\n\n"
-        f"Используй кнопки ниже 👇",
-        reply_markup=main_menu_keyboard()
+        "Привет. Я planner-бот.\n\n"
+        f"Твоя текущая таймзона: {user.timezone_name if user else app.config.default_timezone}\n\n"
+        "Пользуйся кнопками снизу. Через них можно создать напоминание, посмотреть свои задачи, открыть настройки и share-ссылки.",
+        reply_markup=main_menu_kb(),
     )
 
 
@@ -40,10 +42,10 @@ async def cmd_start_with_payload(message: Message, command: CommandObject, app: 
         try:
             _, preview = await app.sharing_service.get_share_preview(token)
         except ValueError as exc:
-            await message.answer(str(exc))
+            await message.answer(str(exc), reply_markup=main_menu_kb())
             return
 
         await message.answer(preview, reply_markup=share_accept_kb(token))
         return
 
-    await message.answer("Бот запущен.")
+    await message.answer("Бот запущен.", reply_markup=main_menu_kb())

@@ -6,14 +6,13 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.config import Config, load_config
 from app.db import init_db
 from app.context import AppContext
-from app.handlers import reminders, sharing, start, timezone
+from app.handlers import menu, reminders, sharing, start, timezone
 from app.repositories.reminders import RemindersRepo
 from app.repositories.shares import SharesRepo
 from app.repositories.users import UsersRepo
 from app.services.scheduler_service import SchedulerService
 from app.services.sharing_service import SharingService
 from app.utils.timezones import validate_timezone_name
-from app.handlers import menu
 
 logging.basicConfig(level=logging.INFO)
 
@@ -21,9 +20,9 @@ logging.basicConfig(level=logging.INFO)
 def _register_handlers(dp: Dispatcher) -> None:
     dp.include_router(start.router)
     dp.include_router(timezone.router)
+    dp.include_router(menu.router)
     dp.include_router(reminders.router)
     dp.include_router(sharing.router)
-dp.include_router(menu.router)
 
 
 async def main() -> None:

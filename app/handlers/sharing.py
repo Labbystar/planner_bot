@@ -3,6 +3,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import CallbackQuery, Message
 
 from app.context import AppContext
+from app.keyboards.menu import main_menu_kb
 
 router = Router()
 
@@ -39,7 +40,7 @@ async def cmd_sharerecipient(message: Message, command: CommandObject, app: AppC
 async def cmd_myshares(message: Message, app: AppContext) -> None:
     shares = await app.shares_repo.list_user_shares(message.from_user.id)
     if not shares:
-        await message.answer("Активных share-ссылок нет")
+        await message.answer("Активных share-ссылок нет", reply_markup=main_menu_kb())
         return
 
     lines = []
@@ -64,7 +65,7 @@ async def cmd_unshare(message: Message, command: CommandObject, app: AppContext)
         return
     token = command.args.strip().replace("share_", "")
     ok = await app.shares_repo.deactivate_share_by_token(token, message.from_user.id)
-    await message.answer("Ссылка отключена" if ok else "Ссылка не найдена")
+    await message.answer("Ссылка отключена" if ok else "Ссылка не найдена", reply_markup=main_menu_kb())
 
 
 @router.callback_query(F.data.startswith("share_accept:"))
@@ -77,11 +78,11 @@ async def cb_share_accept(callback: CallbackQuery, app: AppContext) -> None:
         await callback.answer()
         return
 
-    await callback.message.answer(result)
+    await callback.message.answer(result, reply_markup=main_menu_kb())
     await callback.answer("Готово")
 
 
 @router.callback_query(F.data == "share_cancel")
 async def cb_share_cancel(callback: CallbackQuery) -> None:
-    await callback.message.answer("Принятие share-ссылки отменено")
+    await callback.message.answer("Принятие share-ссылки отменено", reply_markup=main_menu_kb())
     await callback.answer()
