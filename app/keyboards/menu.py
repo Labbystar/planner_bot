@@ -6,19 +6,12 @@ def main_menu() -> ReplyKeyboardMarkup:
         keyboard=[
             [KeyboardButton(text="➕ Создать"), KeyboardButton(text="⚡ Быстро")],
             [KeyboardButton(text="📋 Активные"), KeyboardButton(text="📅 Сегодня")],
+            [KeyboardButton(text="🌤 Завтра"), KeyboardButton(text="🗓 Неделя")],
+            [KeyboardButton(text="🗓 Календарь"), KeyboardButton(text="⏳ Просроченные")],
+            [KeyboardButton(text="🔎 Поиск"), KeyboardButton(text="📤 CSV")],
             [KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="🆔 Мой ID")],
+            [KeyboardButton(text="📊 Статистика")],
         ],
         resize_keyboard=True,
         input_field_placeholder="Выбери действие",
-    )
-
-
-def more_menu() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📜 История"), KeyboardButton(text="📊 Статистика")],
-            [KeyboardButton(text="🔎 Поиск"), KeyboardButton(text="🔗 Ссылки")],
-            [KeyboardButton(text="⬅️ Назад")],
-        ],
-        resize_keyboard=True,
     )

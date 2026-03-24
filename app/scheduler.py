@@ -6,7 +6,7 @@ from aiogram import Bot
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from app.services.reminders import get_reminder, list_active_reminders
+from app.keyboards.reminders import reminder_actions
 from app.services.users import get_user
 from app.utils.formatting import compact_notification
 from app.utils.time import to_local
@@ -26,19 +26,8 @@ def _is_quiet(local_dt: datetime, user: dict) -> bool:
 
 
 async def tick(bot: Bot) -> None:
-    # simple poller once per minute
     now = datetime.now(timezone.utc)
-    # this demo build scans known owners lazily via reminders table
-    # SQLite size here is expected to be small
-    sent_cutoff = now.replace(second=0, microsecond=0)
 
-    # naive full scan
-    owners_checked: set[int] = set()
-    for owner_id in list(owners_checked):
-        pass
-
-    # query due reminders by paging per user is overkill here; do SQL-free simple pass through ids from owners not stored separately
-    # fallback: fetch active reminders for recent users via users table would be cleaner; kept compact for this build
     import aiosqlite
     from app.config import DB_PATH
     async with aiosqlite.connect(DB_PATH) as db:
@@ -54,8 +43,7 @@ async def tick(bot: Bot) -> None:
             if _is_quiet(local_dt, user):
                 continue
             text = compact_notification(reminder["text"], local_dt, reminder["priority"], reminder["category"])
-            await bot.send_message(user["user_id"], text)
-            # prevent duplicates: move one minute ahead if still active, unless user marks done later
+            await bot.send_message(user["user_id"], text, reply_markup=reminder_actions(reminder["id"]))
             await db.execute("UPDATE reminders SET status = 'sent', updated_at = ? WHERE id = ?", (now.isoformat(), reminder['id']))
         await db.commit()
 

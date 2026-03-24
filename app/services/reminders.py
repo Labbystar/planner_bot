@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from collections import Counter
+import calendar as pycalendar
 
 import aiosqlite
 
@@ -30,19 +32,79 @@ async def get_reminder(reminder_id: int) -> dict | None:
         return dict(row) if row else None
 
 
-async def list_active_reminders(owner_user_id: int, page: int = 1, per_page: int = 5) -> tuple[list[dict], int]:
+async def list_active_reminders(owner_user_id: int, page: int = 1, per_page: int = 5, category: str | None = None, priority: str | None = None) -> tuple[list[dict], int]:
     offset = (page - 1) * per_page
+    where = ["owner_user_id = ?", "status IN ('active','snoozed')"]
+    params: list[object] = [owner_user_id]
+    if category:
+        where.append("category = ?")
+        params.append(category)
+    if priority:
+        where.append("priority = ?")
+        params.append(priority)
+    where_sql = " AND ".join(where)
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cur = await db.execute("SELECT COUNT(*) FROM reminders WHERE owner_user_id = ? AND status IN ('active','snoozed')", (owner_user_id,))
+        cur = await db.execute(f"SELECT COUNT(*) FROM reminders WHERE {where_sql}", tuple(params))
         total = (await cur.fetchone())[0]
         total_pages = max(1, (total + per_page - 1) // per_page)
         cur = await db.execute(
-            "SELECT * FROM reminders WHERE owner_user_id = ? AND status IN ('active','snoozed') ORDER BY scheduled_at_utc ASC LIMIT ? OFFSET ?",
-            (owner_user_id, per_page, offset),
+            f"SELECT * FROM reminders WHERE {where_sql} ORDER BY scheduled_at_utc ASC LIMIT ? OFFSET ?",
+            tuple(params + [per_page, offset]),
         )
         rows = await cur.fetchall()
         return [dict(r) for r in rows], total_pages
+
+
+async def list_by_time_window(owner_user_id: int, start_utc: str, end_utc: str) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            """
+            SELECT * FROM reminders
+            WHERE owner_user_id = ?
+              AND status IN ('active','snoozed','sent')
+              AND scheduled_at_utc >= ?
+              AND scheduled_at_utc < ?
+            ORDER BY scheduled_at_utc ASC
+            """,
+            (owner_user_id, start_utc, end_utc),
+        )
+        return [dict(r) for r in await cur.fetchall()]
+
+
+async def list_overdue(owner_user_id: int) -> list[dict]:
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            """
+            SELECT * FROM reminders
+            WHERE owner_user_id = ?
+              AND status = 'sent'
+              AND scheduled_at_utc < ?
+            ORDER BY scheduled_at_utc DESC
+            """,
+            (owner_user_id, now),
+        )
+        return [dict(r) for r in await cur.fetchall()]
+
+
+async def search_reminders(owner_user_id: int, query: str, limit: int = 10) -> list[dict]:
+    pattern = f"%{query.strip()}%"
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            """
+            SELECT * FROM reminders
+            WHERE owner_user_id = ?
+              AND (text LIKE ? OR COALESCE(note, '') LIKE ?)
+            ORDER BY scheduled_at_utc DESC
+            LIMIT ?
+            """,
+            (owner_user_id, pattern, pattern, limit),
+        )
+        return [dict(r) for r in await cur.fetchall()]
 
 
 async def mark_done(reminder_id: int) -> None:
@@ -68,7 +130,104 @@ async def snooze(reminder_id: int, minutes: int) -> None:
         await db.commit()
 
 
+async def update_text(reminder_id: int, new_text: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE reminders SET text = ?, updated_at = ? WHERE id = ?",
+            (new_text.strip(), utc_iso(), reminder_id),
+        )
+        await db.commit()
+
+
+async def update_when(reminder_id: int, scheduled_at_utc: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE reminders SET scheduled_at_utc = ?, status = 'active', updated_at = ? WHERE id = ?",
+            (scheduled_at_utc, utc_iso(), reminder_id),
+        )
+        await db.commit()
+
+
+async def update_note(reminder_id: int, note: str | None) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE reminders SET note = ?, updated_at = ? WHERE id = ?",
+            (note.strip() if note else None, utc_iso(), reminder_id),
+        )
+        await db.commit()
+
+
+async def update_category(reminder_id: int, category: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE reminders SET category = ?, updated_at = ? WHERE id = ?",
+            (category, utc_iso(), reminder_id),
+        )
+        await db.commit()
+
+
+async def update_priority(reminder_id: int, priority: str) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE reminders SET priority = ?, updated_at = ? WHERE id = ?",
+            (priority, utc_iso(), reminder_id),
+        )
+        await db.commit()
+
+
 async def delete_reminder(reminder_id: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("DELETE FROM reminders WHERE id = ?", (reminder_id,))
         await db.commit()
+
+
+async def stats(owner_user_id: int) -> dict:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "SELECT COUNT(*) FROM reminders WHERE owner_user_id = ?",
+            (owner_user_id,),
+        )
+        total = (await cur.fetchone())[0]
+        cur = await db.execute(
+            "SELECT status, COUNT(*) FROM reminders WHERE owner_user_id = ? GROUP BY status",
+            (owner_user_id,),
+        )
+        by_status = {row[0]: row[1] for row in await cur.fetchall()}
+        cur = await db.execute(
+            "SELECT category, COUNT(*) FROM reminders WHERE owner_user_id = ? GROUP BY category",
+            (owner_user_id,),
+        )
+        by_category = {row[0]: row[1] for row in await cur.fetchall()}
+        cur = await db.execute(
+            "SELECT priority, COUNT(*) FROM reminders WHERE owner_user_id = ? GROUP BY priority",
+            (owner_user_id,),
+        )
+        by_priority = {row[0]: row[1] for row in await cur.fetchall()}
+        return {"total": total, "by_status": by_status, "by_category": by_category, "by_priority": by_priority}
+
+
+async def list_month_counts(owner_user_id: int, start_utc: str, end_utc: str) -> dict[str, int]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            """
+            SELECT substr(scheduled_at_utc, 1, 10) as day_key, COUNT(*)
+            FROM reminders
+            WHERE owner_user_id = ?
+              AND scheduled_at_utc >= ?
+              AND scheduled_at_utc < ?
+              AND status IN ('active','snoozed','sent')
+            GROUP BY day_key
+            """,
+            (owner_user_id, start_utc, end_utc),
+        )
+        return {row[0]: row[1] for row in await cur.fetchall()}
+
+
+async def list_all_reminders(owner_user_id: int) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM reminders WHERE owner_user_id = ? ORDER BY scheduled_at_utc ASC",
+            (owner_user_id,),
+        )
+        return [dict(r) for r in await cur.fetchall()]

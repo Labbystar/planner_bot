@@ -15,7 +15,10 @@ async def cmd_start(message: Message) -> None:
     await message.answer(
         "<b>Привет. Я NapomniMne.</b>\n\n"
         f"🌍 Твоя таймзона: <b>{user['timezone_name']}</b>\n\n"
-        "Используй кнопки ниже: быстрое создание, активные задачи, настройки.",
+        "Новые возможности:\n"
+        "• календарный вид по месяцам\n"
+        "• редактирование категории и приоритета\n"
+        "• экспорт задач в CSV",
         parse_mode="HTML",
         reply_markup=main_menu(),
     )
