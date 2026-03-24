@@ -1,40 +1,27 @@
 from aiogram import Router
-from aiogram.filters import CommandObject, CommandStart
+from aiogram.filters import CommandStart
 from aiogram.types import Message
 
-from app.keyboards.share import share_accept_kb
-from app.context import AppContext
+from app.keyboards.menu import main_menu_keyboard
+from app.services.users import upsert_user, get_user
 
 router = Router()
 
-
-@router.message(CommandStart(deep_link=False))
-async def cmd_start(message: Message, app: AppContext) -> None:
-    await app.users_repo.upsert_user(
+@router.message(CommandStart())
+async def cmd_start(message: Message):
+    await upsert_user(
         user_id=message.from_user.id,
         username=message.from_user.username,
         full_name=message.from_user.full_name,
-        timezone_name=app.config.default_timezone,
     )
-    user = await app.users_repo.get_user(message.from_user.id)
+
+    user = await get_user(message.from_user.id)
 
     await message.answer(
-        "Привет. Я planner-бот.\n\n"
-        f"Твоя текущая таймзона: {user.timezone_name if user else app.config.default_timezone}\n\n"
-        "Команды:\n"
-        "/myid\n"
-        "/timezone\n"
-        "/settz Asia/Novosibirsk\n"
-        "/time\n"
-        "/addmulti YYYY-MM-DD HH:MM user1,user2 текст\n"
-        "/adddaily HH:MM user1,user2 текст\n"
-        "/addweekly пн HH:MM user1,user2 текст\n"
-        "/list\n"
-        "/delete ID\n"
-        "/sharecopy ID\n"
-        "/sharerecipient ID\n"
-        "/myshares\n"
-        "/unshare TOKEN"
+        f"Привет. Я planner-бот.\n\n"
+        f"Твоя таймзона: {user.timezone_name}\n\n"
+        f"Используй кнопки ниже 👇",
+        reply_markup=main_menu_keyboard()
     )
 
 
