@@ -1,50 +1,21 @@
 from aiogram import Router
-from aiogram.filters import CommandObject, CommandStart
+from aiogram.filters import CommandStart
 from aiogram.types import Message
 
-from app.context import AppContext
-from app.keyboards.menu import main_menu_kb
-from app.keyboards.share import share_accept_kb
+from app.keyboards.menu import main_menu
+from app.services.users import get_user, upsert_user
 
 router = Router()
 
 
-@router.message(CommandStart(deep_link=False))
-async def cmd_start(message: Message, app: AppContext) -> None:
-    await app.users_repo.upsert_user(
-        user_id=message.from_user.id,
-        username=message.from_user.username,
-        full_name=message.from_user.full_name,
-        timezone_name=app.config.default_timezone,
-    )
-    user = await app.users_repo.get_user(message.from_user.id)
-
+@router.message(CommandStart())
+async def cmd_start(message: Message) -> None:
+    await upsert_user(message.from_user.id, message.from_user.username, message.from_user.full_name)
+    user = await get_user(message.from_user.id)
     await message.answer(
-        "Привет. Я planner-бот.\n\n"
-        f"Твоя текущая таймзона: {user.timezone_name if user else app.config.default_timezone}\n\n"
-        "Теперь у меня есть категории, приоритеты, история действий, предуведомления, интервальные напоминания и статистика.",
-        reply_markup=main_menu_kb(),
+        "<b>Привет. Я NapomniMne.</b>\n\n"
+        f"🌍 Твоя таймзона: <b>{user['timezone_name']}</b>\n\n"
+        "Используй кнопки ниже: быстрое создание, активные задачи, настройки.",
+        parse_mode="HTML",
+        reply_markup=main_menu(),
     )
-
-
-@router.message(CommandStart(deep_link=True))
-async def cmd_start_with_payload(message: Message, command: CommandObject, app: AppContext) -> None:
-    await app.users_repo.upsert_user(
-        user_id=message.from_user.id,
-        username=message.from_user.username,
-        full_name=message.from_user.full_name,
-        timezone_name=app.config.default_timezone,
-    )
-
-    payload = command.args or ""
-    if payload.startswith("share_"):
-        token = payload.removeprefix("share_")
-        try:
-            _, preview = await app.sharing_service.get_share_preview(token)
-        except ValueError as exc:
-            await message.answer(str(exc), reply_markup=main_menu_kb())
-            return
-        await message.answer(preview, reply_markup=share_accept_kb(token))
-        return
-
-    await message.answer("Бот запущен.", reply_markup=main_menu_kb())
