@@ -19,6 +19,7 @@ async def cmd_sharecopy(message: Message, command: CommandObject, app: AppContex
     except ValueError as exc:
         await message.answer(str(exc))
         return
+    await app.history_service.log(reminder_id, message.from_user.id, "share_created", {"mode": "copy"})
     await message.answer(f"Ссылка для копии:\n{link}")
 
 
@@ -33,6 +34,7 @@ async def cmd_sharerecipient(message: Message, command: CommandObject, app: AppC
     except ValueError as exc:
         await message.answer(str(exc))
         return
+    await app.history_service.log(reminder_id, message.from_user.id, "share_created", {"mode": "recipient"})
     await message.answer(f"Ссылка для подписки на исходное напоминание:\n{link}")
 
 
@@ -42,19 +44,10 @@ async def cmd_myshares(message: Message, app: AppContext) -> None:
     if not shares:
         await message.answer("Активных share-ссылок нет", reply_markup=main_menu_kb())
         return
-
     lines = []
     for share in shares:
-        if app.config.bot_username:
-            link = f"https://t.me/{app.config.bot_username}?start=share_{share.token}"
-        else:
-            link = f"share_{share.token}"
-        lines.append(
-            f"Reminder ID: {share.reminder_id}\n"
-            f"Режим: {share.share_mode}\n"
-            f"Токен: {share.token}\n"
-            f"Ссылка: {link}"
-        )
+        link = f"https://t.me/{app.config.bot_username}?start=share_{share.token}" if app.config.bot_username else f"share_{share.token}"
+        lines.append(f"Reminder ID: {share.reminder_id}\nРежим: {share.share_mode}\nТокен: {share.token}\nСсылка: {link}")
     await message.answer("\n\n".join(lines))
 
 
@@ -77,7 +70,9 @@ async def cb_share_accept(callback: CallbackQuery, app: AppContext) -> None:
         await callback.message.answer(str(exc))
         await callback.answer()
         return
-
+    share = await app.shares_repo.get_share_by_token(token)
+    if share:
+        await app.history_service.log(share.reminder_id, callback.from_user.id, "share_accepted")
     await callback.message.answer(result, reply_markup=main_menu_kb())
     await callback.answer("Готово")
 

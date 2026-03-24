@@ -22,7 +22,7 @@ async def cmd_start(message: Message, app: AppContext) -> None:
     await message.answer(
         "Привет. Я planner-бот.\n\n"
         f"Твоя текущая таймзона: {user.timezone_name if user else app.config.default_timezone}\n\n"
-        "Пользуйся кнопками снизу. Через них можно создать напоминание, посмотреть свои задачи, открыть настройки и share-ссылки.",
+        "Теперь у меня есть категории, приоритеты, история действий, предуведомления, интервальные напоминания и статистика.",
         reply_markup=main_menu_kb(),
     )
 
@@ -44,7 +44,6 @@ async def cmd_start_with_payload(message: Message, command: CommandObject, app: 
         except ValueError as exc:
             await message.answer(str(exc), reply_markup=main_menu_kb())
             return
-
         await message.answer(preview, reply_markup=share_accept_kb(token))
         return
 
