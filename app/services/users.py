@@ -31,6 +31,19 @@ async def get_user(user_id: int) -> dict | None:
         return dict(row) if row else None
 
 
+async def list_users(exclude_user_id: int | None = None) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        if exclude_user_id is None:
+            cur = await db.execute("SELECT user_id, username, full_name FROM users ORDER BY COALESCE(username, full_name)")
+        else:
+            cur = await db.execute(
+                "SELECT user_id, username, full_name FROM users WHERE user_id != ? ORDER BY COALESCE(username, full_name)",
+                (exclude_user_id,),
+            )
+        return [dict(r) for r in await cur.fetchall()]
+
+
 async def set_timezone(user_id: int, timezone_name: str) -> None:
     validate_timezone(timezone_name)
     async with aiosqlite.connect(DB_PATH) as db:

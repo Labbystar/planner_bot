@@ -36,13 +36,14 @@ async def tick(bot: Bot) -> None:
         rows = await cur.fetchall()
         for row in rows:
             reminder = dict(row)
-            user = await get_user(reminder["owner_user_id"])
+            recipient_id = reminder.get("assigned_user_id") or reminder["owner_user_id"]
+            user = await get_user(recipient_id)
             if not user:
                 continue
             local_dt = to_local(datetime.fromisoformat(reminder["scheduled_at_utc"]), user["timezone_name"])
             if _is_quiet(local_dt, user):
                 continue
-            text = compact_notification(reminder["text"], local_dt, reminder["priority"], reminder["category"])
+            text = compact_notification(reminder["text"], local_dt, reminder["priority"], reminder["category"], reminder.get("note"))
             await bot.send_message(user["user_id"], text, reply_markup=reminder_actions(reminder["id"]))
             await db.execute("UPDATE reminders SET status = 'sent', updated_at = ? WHERE id = ?", (now.isoformat(), reminder['id']))
         await db.commit()

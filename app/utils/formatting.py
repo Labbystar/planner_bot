@@ -29,24 +29,33 @@ MONTHS_RU = {
 }
 
 
-def compact_notification(text: str, when_local: datetime, priority: str, category: str) -> str:
+def compact_notification(text: str, when_local: datetime, priority: str, category: str, note: str | None = None) -> str:
     title = text.strip().replace("\n", " ")
     if len(title) > 42:
         title = title[:39] + "..."
+    note_line = ""
+    if note:
+        compact = note.strip().replace("\n", " ")
+        if len(compact) > 36:
+            compact = compact[:33] + "..."
+        note_line = f"\n📝 {compact}"
     return (
-        f"⏰ {title}\n"
+        f"⏰ {title}{note_line}\n"
         f"📅 {when_local.strftime('%d.%m %H:%M')} · {PRIORITY_LABELS.get(priority, priority)} · {CATEGORY_LABELS.get(category, category)}"
     )
 
 
 def reminder_card(reminder: dict, when_local: datetime) -> str:
     note = f"\n📝 {escape(reminder['note'])}" if reminder.get("note") else ""
-    status = STATUS_LABELS.get(reminder['status'], reminder['status'])
+    status = STATUS_LABELS.get(reminder["status"], reminder["status"])
+    delegated = ""
+    if reminder.get("assigned_user_id") and reminder.get("assigned_user_id") != reminder.get("owner_user_id"):
+        delegated = f"\n👤 Делегировано: ID {reminder['assigned_user_id']}"
     return (
         f"<b>⏰ {escape(reminder['text'])}</b>\n\n"
         f"📅 {when_local.strftime('%d.%m.%Y %H:%M')}\n"
         f"{CATEGORY_LABELS.get(reminder['category'], reminder['category'])} · {PRIORITY_LABELS.get(reminder['priority'], reminder['priority'])}\n"
-        f"📌 Статус: {status}{note}"
+        f"📌 Статус: {status}{delegated}{note}"
     )
 
 
@@ -58,9 +67,12 @@ def page_header(title: str, page: int, total_pages: int, subtitle: str | None = 
 
 
 def list_line(reminder: dict, when_local: datetime) -> str:
+    delegated = ""
+    if reminder.get("assigned_user_id") and reminder.get("assigned_user_id") != reminder.get("owner_user_id"):
+        delegated = f"\n  👤 ID {reminder['assigned_user_id']}"
     return (
         f"• <b>{when_local.strftime('%d.%m %H:%M')}</b> — {escape(reminder['text'])}\n"
-        f"  {CATEGORY_LABELS.get(reminder['category'], reminder['category'])} · {PRIORITY_LABELS.get(reminder['priority'], reminder['priority'])}"
+        f"  {CATEGORY_LABELS.get(reminder['category'], reminder['category'])} · {PRIORITY_LABELS.get(reminder['priority'], reminder['priority'])}{delegated}"
     )
 
 
