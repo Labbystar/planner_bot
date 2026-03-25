@@ -1,22 +1,14 @@
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
+# Добавь кнопку в главное меню
 
-def main_menu() -> ReplyKeyboardMarkup:
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+
+def main_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="➕ Создать"), KeyboardButton(text="⚡ Быстро")],
-            [KeyboardButton(text="📥 Мне поставили"), KeyboardButton(text="📤 Я поставил")],
-            [KeyboardButton(text="📋 Активные"), KeyboardButton(text="📅 Сегодня")],
-            [KeyboardButton(text="🌤 Завтра"), KeyboardButton(text="🗓 Неделя")],
-            [KeyboardButton(text="🗓 Календарь"), KeyboardButton(text="⏳ Просроченные")],
-            [KeyboardButton(text="🔎 Поиск"), KeyboardButton(text="📤 Экспорт CSV")],
-            [KeyboardButton(text="📥 Импорт CSV"), KeyboardButton(text="📤 Экспорт Excel")],
-            [KeyboardButton(text="📥 Импорт Excel"), KeyboardButton(text="📄 Word-отчёт")],
-            [KeyboardButton(text="⚙️ Настройки"), KeyboardButton(text="🆔 Мой ID")],
-            [KeyboardButton(text="📊 Статистика")],
+            [KeyboardButton(text="➕ Создать")],
+            [KeyboardButton(text="📊 Статистика по сотрудникам")],
+            [KeyboardButton(text="👑 Админка")],
         ],
-        resize_keyboard=True,
-        input_field_placeholder="Выбери действие",
+        resize_keyboard=True
     )
-
-main_menu_kb = main_menu
