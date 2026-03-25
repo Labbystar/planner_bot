@@ -22,6 +22,7 @@ async def init_db() -> None:
             quiet_hours_enabled INTEGER NOT NULL DEFAULT 0,
             quiet_start TEXT,
             quiet_end TEXT,
+            is_active INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
@@ -47,4 +48,5 @@ async def init_db() -> None:
         await _add_column_if_missing(db, 'reminders', 'assigned_user_id', 'assigned_user_id INTEGER')
         await _add_column_if_missing(db, 'reminders', 'note', 'note TEXT')
         await db.execute("UPDATE reminders SET assigned_user_id = owner_user_id WHERE assigned_user_id IS NULL")
+        await _add_column_if_missing(db, 'users', 'is_active', 'is_active INTEGER NOT NULL DEFAULT 1')
         await db.commit()

@@ -60,6 +60,7 @@ def settings_kb(enabled: bool) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="🌍 Показать таймзону", callback_data="sett:tz")],
         [InlineKeyboardButton(text="Новосибирск", callback_data="tz:Asia/Novosibirsk"), InlineKeyboardButton(text="Москва", callback_data="tz:Europe/Moscow")],
         [InlineKeyboardButton(text=label, callback_data="sett:quiet")],
+        [InlineKeyboardButton(text="🗑 Удалить профиль", callback_data="sett:delete")],
     ])
 
 
