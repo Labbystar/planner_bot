@@ -40,7 +40,7 @@ async def get_reminder(reminder_id: int) -> dict | None:
 
 async def list_active_reminders(user_id: int, page: int = 1, per_page: int = 5, category: str | None = None, priority: str | None = None) -> tuple[list[dict], int]:
     offset = (page - 1) * per_page
-    where = [BASE_SCOPE, "status IN ('active','snoozed','sent')"]
+    where = [BASE_SCOPE, "status IN ('active','in_progress','pending_confirmation','confirmed','overdue','snoozed')"]
     params: list[object] = [user_id, user_id]
     if category:
         where.append("category = ?")
@@ -90,8 +90,8 @@ async def list_by_time_window(user_id: int, start_utc: str, end_utc: str) -> lis
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cur = await db.execute(
-            f"SELECT * FROM reminders WHERE {BASE_SCOPE} AND status IN ('active','snoozed','sent') AND scheduled_at_utc >= ? AND scheduled_at_utc < ? ORDER BY scheduled_at_utc ASC",
-            (user_id, user_id, *VISIBLE_STATUSES, start_utc, end_utc),
+            f"SELECT * FROM reminders WHERE {BASE_SCOPE} AND status IN ('active','in_progress','pending_confirmation','confirmed','overdue','snoozed') AND scheduled_at_utc >= ? AND scheduled_at_utc < ? ORDER BY scheduled_at_utc ASC",
+            (user_id, user_id, start_utc, end_utc),
         )
         return [dict(r) for r in await cur.fetchall()]
 
@@ -128,9 +128,33 @@ async def mark_done(reminder_id: int) -> None:
         await db.commit()
 
 
+async def confirm_done(reminder_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE reminders SET status = 'confirmed', updated_at = ? WHERE id = ?", (utc_iso(), reminder_id))
+        await db.commit()
+
+
+async def return_to_work(reminder_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE reminders SET status = 'in_progress', updated_at = ? WHERE id = ?", (utc_iso(), reminder_id))
+        await db.commit()
+
+
+async def mark_in_progress(reminder_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE reminders SET status = 'in_progress', updated_at = ? WHERE id = ? AND status IN ('active','snoozed','overdue')", (utc_iso(), reminder_id))
+        await db.commit()
+
+
+async def set_overdue(reminder_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE reminders SET status = 'overdue', overdue_notified_at = ?, updated_at = ? WHERE id = ? AND status != 'confirmed' AND status != 'cancelled'", (utc_iso(), utc_iso(), reminder_id))
+        await db.commit()
+
+
 async def mark_sent(reminder_id: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("UPDATE reminders SET status = 'sent', updated_at = ? WHERE id = ?", (utc_iso(), reminder_id))
+        await db.execute("UPDATE reminders SET status = 'in_progress', updated_at = ? WHERE id = ?", (utc_iso(), reminder_id))
         await db.commit()
 
 
@@ -229,8 +253,8 @@ async def stats(user_id: int) -> dict:
 async def list_month_counts(user_id: int, start_utc: str, end_utc: str) -> dict[str, int]:
     async with aiosqlite.connect(DB_PATH) as db:
         cur = await db.execute(
-            f"SELECT substr(scheduled_at_utc, 1, 10) as day_key, COUNT(*) FROM reminders WHERE {BASE_SCOPE} AND scheduled_at_utc >= ? AND scheduled_at_utc < ? AND status IN ('active','snoozed','sent','done') GROUP BY day_key",
-            (user_id, user_id, *VISIBLE_STATUSES, start_utc, end_utc),
+            f"SELECT substr(scheduled_at_utc, 1, 10) as day_key, COUNT(*) FROM reminders WHERE {BASE_SCOPE} AND scheduled_at_utc >= ? AND scheduled_at_utc < ? AND status IN ('active','in_progress','pending_confirmation','confirmed','overdue','snoozed') GROUP BY day_key",
+            (user_id, user_id, start_utc, end_utc),
         )
         return {row[0]: row[1] for row in await cur.fetchall()}
 
