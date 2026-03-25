@@ -6,7 +6,7 @@ from app.db import init_db
 from app.handlers import create, menu, reminder_actions, settings, start
 from app.scheduler import start_scheduler
 from app.handlers import stats, admin
-
+from app.handlers import menu_sections
 
 async def main() -> None:
     await init_db()
@@ -19,5 +19,6 @@ async def main() -> None:
     dp.include_router(settings.router)
     dp.include_router(stats.router)
     dp.include_router(admin.router)
+    dp.include_router(menu_sections.router)
     start_scheduler(bot)
     await dp.start_polling(bot)
