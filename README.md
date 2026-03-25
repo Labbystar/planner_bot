@@ -1,25 +1,32 @@
-# Planner Bot
+# NapomniMne — functional v3
 
-Telegram planner bot with:
-- кнопочным меню
-- несколькими получателями
-- таймзонами
-- share-ссылками
-- категориями и приоритетами
-- историей действий
-- кнопками «выполнено / отложить»
+Что добавлено в этой версии:
+- календарный вид по месяцам
+- просмотр задач по конкретному дню из календаря
+- редактирование категории и приоритета прямо из карточки напоминания
+- экспорт всех задач пользователя в CSV
+- статистика по приоритетам
 
-## Railway
+Что загрузить в GitHub:
+- папку `app`
+- `run.py`
+- `requirements.txt`
+- `Procfile`
+- `README.md`
+- `.env.example`
+
+Что не загружать:
+- `.env`
+- `.db`
+- `__pycache__`
+
+Переменные в Railway:
+- `BOT_TOKEN`
+- `DEFAULT_TIMEZONE`
+
 Start command:
+`python run.py`
 
-```bash
-python run.py
-```
 
-Variables:
-
-```env
-BOT_TOKEN=...
-BOT_USERNAME=your_bot_username
-DEFAULT_TIMEZONE=Asia/Novosibirsk
-```
+## Patch
+- Добавлено мягкое удаление профиля из настроек.
