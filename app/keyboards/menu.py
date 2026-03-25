@@ -7,7 +7,7 @@ def main_menu() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="➕ Создать"), KeyboardButton(text="⚡ Быстро")],
             [KeyboardButton(text="📥 Мне поставили"), KeyboardButton(text="📤 Я поставил")],
             [KeyboardButton(text="📋 Задачи"), KeyboardButton(text="📊 Команда")],
-            [KeyboardButton(text="⚙️ Сервис"), KeyboardButton(text="🆔 Мой ID")],
+            [KeyboardButton(text="⚙️ Сервис")],
         ],
         resize_keyboard=True,
         input_field_placeholder="Выбери действие",
@@ -32,11 +32,22 @@ def team_menu() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📊 Статистика по сотрудникам"), KeyboardButton(text="👑 Админка")],
-            [KeyboardButton(text="📥 Мне поставили"), KeyboardButton(text="📤 Я поставил")],
             [KeyboardButton(text="⬅️ Назад в меню")],
         ],
         resize_keyboard=True,
         input_field_placeholder="Раздел: Команда",
+    )
+
+
+def employee_stats_menu() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📌 Нагрузка"), KeyboardButton(text="📈 Общая статистика")],
+            [KeyboardButton(text="🏆 Рейтинг")],
+            [KeyboardButton(text="⬅️ Назад в команду")],
+        ],
+        resize_keyboard=True,
+        input_field_placeholder="Раздел: Статистика по сотрудникам",
     )
 
 
