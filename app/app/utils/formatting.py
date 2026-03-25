@@ -74,7 +74,7 @@ def assignment_notification(reminder: dict, when_local: datetime, owner_label: s
 
 def reminder_card(reminder: dict, when_local: datetime, owner_label: str | None = None, assignee_label: str | None = None, mode: str = 'shared') -> str:
     note = f"\n📝 {escape(reminder['note'])}" if reminder.get("note") else ""
-    assignee_comment = f"\n💬 Комментарий: {escape(reminder['assignee_comment'])}" if reminder.get("assignee_comment") else ""
+    assignee_comment = f"\n💬 Комментарий исполнителя: {escape(reminder['assignee_comment'])}" if reminder.get('assignee_comment') else ""
     status = STATUS_LABELS.get(reminder["status"], reminder["status"])
     participants = []
     if mode == 'owner':

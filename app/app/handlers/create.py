@@ -5,7 +5,6 @@ from datetime import timezone
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram import Bot
 from aiogram.types import CallbackQuery, Message
 
 from app.keyboards.create import assignee_kb, categories_kb, note_kb, priorities_kb
@@ -110,7 +109,7 @@ async def got_assignee_manual(message: Message, state: FSMContext) -> None:
 
 
 @router.message(CreateReminder.when)
-async def got_when(message: Message, state: FSMContext, bot: Bot) -> None:
+async def got_when(message: Message, state: FSMContext) -> None:
     creator = await get_user(message.from_user.id)
     if not creator:
         await message.answer("Сначала нажми /start")

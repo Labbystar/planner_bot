@@ -43,7 +43,7 @@ async def toggle_assignee_edit(reminder_id: int) -> None:
 
 async def list_active_reminders(user_id: int, page: int = 1, per_page: int = 5, category: str | None = None, priority: str | None = None) -> tuple[list[dict], int]:
     offset = (page - 1) * per_page
-    where = [BASE_SCOPE, "status IN ('active','snoozed','sent','done')"]
+    where = [BASE_SCOPE, "status IN ('active','snoozed','sent')"]
     params: list[object] = [user_id, user_id]
     if category:
         where.append("category = ?")
@@ -79,7 +79,7 @@ async def list_assigned_to_me(user_id: int, page: int = 1, per_page: int = 5) ->
 
 async def list_created_by_me(user_id: int, page: int = 1, per_page: int = 5) -> tuple[list[dict], int]:
     offset = (page - 1) * per_page
-    where = "owner_user_id = ? AND assigned_user_id != ?"
+    where = "owner_user_id = ? AND assigned_user_id != ? AND status != 'cancelled'"
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cur = await db.execute(f"SELECT COUNT(*) FROM reminders WHERE {where}", (user_id, user_id))
@@ -156,15 +156,6 @@ async def update_when(reminder_id: int, scheduled_at_utc: str) -> None:
         await db.commit()
 
 
-
-async def update_assignee_comment(reminder_id: int, comment: str | None) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "UPDATE reminders SET assignee_comment = ?, updated_at = ? WHERE id = ?",
-            ((comment or '').strip() or None, utc_iso(), reminder_id),
-        )
-        await db.commit()
-
 async def update_category(reminder_id: int, category: str) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("UPDATE reminders SET category = ?, updated_at = ? WHERE id = ?", (category, utc_iso(), reminder_id))
@@ -210,3 +201,12 @@ async def list_all_reminders(user_id: int) -> list[dict]:
         db.row_factory = aiosqlite.Row
         cur = await db.execute(f"SELECT * FROM reminders WHERE {BASE_SCOPE} ORDER BY scheduled_at_utc ASC", (user_id, user_id))
         return [dict(r) for r in await cur.fetchall()]
+
+
+async def update_assignee_comment(reminder_id: int, comment: str | None) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "UPDATE reminders SET assignee_comment = ?, updated_at = ? WHERE id = ?",
+            (comment.strip() if comment else None, utc_iso(), reminder_id),
+        )
+        await db.commit()

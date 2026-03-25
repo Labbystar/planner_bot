@@ -7,10 +7,7 @@ def assignee_actions(reminder_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="👁 Принял", callback_data=f"accept:{reminder_id}"),
             InlineKeyboardButton(text="✅ Выполнено", callback_data=f"done:{reminder_id}"),
         ],
-        [
-            InlineKeyboardButton(text="⏰ Отложить", callback_data=f"snzmenu:{reminder_id}"),
-            InlineKeyboardButton(text="💬 Комментарий", callback_data=f"comment:{reminder_id}"),
-        ],
+        [InlineKeyboardButton(text="⏰ Отложить", callback_data=f"snzmenu:{reminder_id}"), InlineKeyboardButton(text="💬 Комментарий", callback_data=f"comment:{reminder_id}")],
     ])
 
 
