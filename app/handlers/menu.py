@@ -25,6 +25,7 @@ from app.services.reminders import (
     list_overdue,
     search_reminders,
     stats,
+    count_attachments,
 )
 from app.services.users import get_user
 from app.utils.formatting import calendar_title, list_line, page_header, reminder_card, stats_text, user_label
@@ -141,7 +142,7 @@ async def export_csv(message: Message) -> None:
     writer.writerow(["id","text","note","category","priority","status","owner_user_id","assigned_user_id","scheduled_local","scheduled_utc","created_at_utc","updated_at_utc","completed_at_utc"])
     for r in rows:
         dt_local = to_local(datetime.fromisoformat(r["scheduled_at_utc"]), user["timezone_name"])
-        writer.writerow([r.get("id", ""),r.get("text", ""),r.get("note", "") or "",r.get("category", "") or "",r.get("priority", "") or "",r.get("status", "") or "",r.get("owner_user_id", ""),r.get("assigned_user_id", ""),dt_local.strftime("%Y-%m-%d %H:%M"),r.get("scheduled_at_utc", "") or "",r.get("created_at", "") or "",r.get("updated_at", "") or "",r.get("completed_at", "") or ""])
+        writer.writerow([r.get("id", ""),r.get("text", ""),r.get("note", "") or "",r.get("category", "") or "",r.get("priority", "") or "",r.get("status", "") or "",r.get("owner_user_id", ""),r.get("assigned_user_id", ""),dt_local.strftime('%d.%m.%Y %H:%M'),r.get("scheduled_at_utc", "") or "",r.get("created_at", "") or "",r.get("updated_at", "") or "",r.get("completed_at", "") or ""])
     payload = output.getvalue().encode("utf-8-sig")
     filename = f"napomnime_export_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
     await message.answer_document(BufferedInputFile(payload, filename=filename), caption="Готово. Это полный экспорт задач и статусов в CSV.")
@@ -345,6 +346,7 @@ async def send_reminders_page(target: Message | CallbackQuery, user_id: int, pag
         dt_local = to_local(datetime.fromisoformat(reminder['scheduled_at_utc']), user['timezone_name'])
         owner = await get_user(reminder.get('owner_user_id'))
         assignee = await get_user(reminder.get('assigned_user_id'))
+        reminder['attachments_count'] = await count_attachments(reminder['id'])
         mode = await _mode_for_user(reminder, user_id)
         text = (header + "\n\n" if idx == 0 else "") + reminder_card(reminder, dt_local, user_label(owner, reminder.get('owner_user_id')), user_label(assignee, reminder.get('assigned_user_id')), mode)
         kb = reminder_actions(reminder['id'], 'assignee' if mode == 'assigned' and not reminder.get('assignee_can_edit') else 'owner', bool(reminder.get('assignee_can_edit')))
@@ -372,6 +374,7 @@ async def send_assigned_page(target: Message | CallbackQuery, user_id: int, page
     for idx, reminder in enumerate(reminders):
         dt_local = to_local(datetime.fromisoformat(reminder['scheduled_at_utc']), user['timezone_name'])
         owner = await get_user(reminder.get('owner_user_id'))
+        reminder['attachments_count'] = await count_attachments(reminder['id'])
         text = (header + "\n\n" if idx == 0 else "") + reminder_card(reminder, dt_local, owner_label=user_label(owner, reminder.get('owner_user_id')), mode='assigned')
         kb = reminder_actions(reminder['id'], 'assignee', bool(reminder.get('assignee_can_edit')))
         if isinstance(target, Message): await target.answer(text, parse_mode='HTML', reply_markup=kb)
@@ -394,6 +397,7 @@ async def send_owner_page(target: Message | CallbackQuery, user_id: int, page: i
     for idx, reminder in enumerate(reminders):
         dt_local = to_local(datetime.fromisoformat(reminder['scheduled_at_utc']), user['timezone_name'])
         assignee = await get_user(reminder.get('assigned_user_id'))
+        reminder['attachments_count'] = await count_attachments(reminder['id'])
         text = (header + "\n\n" if idx == 0 else "") + reminder_card(reminder, dt_local, assignee_label=user_label(assignee, reminder.get('assigned_user_id')), mode='owner')
         kb = reminder_actions(reminder['id'], 'owner', bool(reminder.get('assignee_can_edit')))
         if isinstance(target, Message): await target.answer(text, parse_mode='HTML', reply_markup=kb)
@@ -446,6 +450,7 @@ async def calendar_day(callback: CallbackQuery) -> None:
     for r in rows[:20]:
         dt_local = to_local(datetime.fromisoformat(r['scheduled_at_utc']), user['timezone_name'])
         owner = await get_user(r.get('owner_user_id')); assignee = await get_user(r.get('assigned_user_id'))
+        r['attachments_count'] = await count_attachments(r['id'])
         lines.append(list_line(r, dt_local, user_label(owner, r.get('owner_user_id')), user_label(assignee, r.get('assigned_user_id')), await _mode_for_user(r, callback.from_user.id)))
     await callback.message.answer("\n\n".join(lines), parse_mode='HTML'); await callback.answer()
 

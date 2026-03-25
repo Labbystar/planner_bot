@@ -7,7 +7,11 @@ def assignee_actions(reminder_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="👁 Принял", callback_data=f"accept:{reminder_id}"),
             InlineKeyboardButton(text="✅ Выполнено", callback_data=f"done:{reminder_id}"),
         ],
-        [InlineKeyboardButton(text="⏰ Отложить", callback_data=f"snzmenu:{reminder_id}")],
+        [
+            InlineKeyboardButton(text="⏰ Отложить", callback_data=f"snzmenu:{reminder_id}"),
+            InlineKeyboardButton(text="💬 Комментарий", callback_data=f"comment:{reminder_id}"),
+        ],
+        [InlineKeyboardButton(text="📎 Вложения", callback_data=f"atts:{reminder_id}")],
     ])
 
 
@@ -16,6 +20,7 @@ def owner_actions(reminder_id: int, assignee_can_edit: bool = False) -> InlineKe
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✏️ Текст", callback_data=f"edittext:{reminder_id}"), InlineKeyboardButton(text="🕓 Время", callback_data=f"edittime:{reminder_id}")],
         [InlineKeyboardButton(text="📂 Категория", callback_data=f"editcatmenu:{reminder_id}"), InlineKeyboardButton(text="🚦 Приоритет", callback_data=f"editpriomenu:{reminder_id}")],
+        [InlineKeyboardButton(text="📎 Вложения", callback_data=f"atts:{reminder_id}")],
         [InlineKeyboardButton(text=lock_label, callback_data=f"toggleedit:{reminder_id}"), InlineKeyboardButton(text="🗑 Удалить", callback_data=f"del:{reminder_id}")],
     ])
 

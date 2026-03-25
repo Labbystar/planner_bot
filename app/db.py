@@ -41,13 +41,31 @@ async def init_db() -> None:
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             completed_at TEXT,
+            assignee_can_edit INTEGER NOT NULL DEFAULT 0,
+            assignee_comment TEXT,
             FOREIGN KEY(owner_user_id) REFERENCES users(user_id),
             FOREIGN KEY(assigned_user_id) REFERENCES users(user_id)
+        )
+        """)
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS reminder_attachments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            reminder_id INTEGER NOT NULL,
+            uploader_user_id INTEGER NOT NULL,
+            attachment_type TEXT NOT NULL,
+            telegram_file_id TEXT,
+            file_name TEXT,
+            mime_type TEXT,
+            text_value TEXT,
+            url_value TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(reminder_id) REFERENCES reminders(id)
         )
         """)
         await _add_column_if_missing(db, 'reminders', 'assigned_user_id', 'assigned_user_id INTEGER')
         await _add_column_if_missing(db, 'reminders', 'note', 'note TEXT')
         await _add_column_if_missing(db, 'reminders', 'assignee_can_edit', 'assignee_can_edit INTEGER NOT NULL DEFAULT 0')
+        await _add_column_if_missing(db, 'reminders', 'assignee_comment', 'assignee_comment TEXT')
         await _add_column_if_missing(db, 'users', 'is_active', 'is_active INTEGER NOT NULL DEFAULT 1')
         await _add_column_if_missing(db, 'users', 'role', "role TEXT NOT NULL DEFAULT 'user'")
         await db.execute("UPDATE reminders SET assigned_user_id = owner_user_id WHERE assigned_user_id IS NULL")
