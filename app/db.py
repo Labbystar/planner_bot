@@ -43,6 +43,7 @@ async def init_db() -> None:
             completed_at TEXT,
             assignee_can_edit INTEGER NOT NULL DEFAULT 0,
             assignee_comment TEXT,
+            overdue_notified_at TEXT,
             FOREIGN KEY(owner_user_id) REFERENCES users(user_id),
             FOREIGN KEY(assigned_user_id) REFERENCES users(user_id)
         )
@@ -66,6 +67,7 @@ async def init_db() -> None:
         await _add_column_if_missing(db, 'reminders', 'note', 'note TEXT')
         await _add_column_if_missing(db, 'reminders', 'assignee_can_edit', 'assignee_can_edit INTEGER NOT NULL DEFAULT 0')
         await _add_column_if_missing(db, 'reminders', 'assignee_comment', 'assignee_comment TEXT')
+        await _add_column_if_missing(db, 'reminders', 'overdue_notified_at', 'overdue_notified_at TEXT')
         await _add_column_if_missing(db, 'users', 'is_active', 'is_active INTEGER NOT NULL DEFAULT 1')
         await _add_column_if_missing(db, 'users', 'role', "role TEXT NOT NULL DEFAULT 'user'")
         await db.execute("UPDATE reminders SET assigned_user_id = owner_user_id WHERE assigned_user_id IS NULL")

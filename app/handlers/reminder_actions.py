@@ -10,20 +10,23 @@ from aiogram.types import CallbackQuery, Message
 from app.keyboards.reminders import category_edit_kb, priority_edit_kb, snooze_kb
 from app.services.reminders import (
     count_attachments,
+    confirm_done,
     delete_reminder,
     get_reminder,
     list_attachments,
     mark_done,
+    mark_in_progress,
     set_assignee_comment,
     snooze,
     toggle_assignee_edit,
+    return_to_work,
     update_category,
     update_priority,
     update_text,
     update_when,
 )
 from app.services.users import get_user
-from app.utils.formatting import owner_status_notification, user_label
+from app.utils.formatting import assignee_feedback_notification, owner_confirmation_notification, owner_status_notification, user_label
 from app.utils.time import parse_user_time
 
 router = Router()
@@ -111,8 +114,10 @@ async def accept_task(callback: CallbackQuery) -> None:
     if not _can_act(reminder, viewer):
         await callback.answer('Нет доступа', show_alert=True)
         return
-    await _notify_owner(callback, reminder, viewer, 'Принято')
-    await callback.answer('Задача принята')
+    await mark_in_progress(reminder_id)
+    reminder = await get_reminder(reminder_id)
+    await _notify_owner(callback, reminder, viewer, 'Принято в работу')
+    await callback.answer('Задача принята в работу')
 
 
 @router.callback_query(F.data.startswith('done:'))
@@ -120,15 +125,73 @@ async def done(callback: CallbackQuery) -> None:
     reminder_id = int(callback.data.split(':', 1)[1])
     reminder = await get_reminder(reminder_id)
     viewer = await get_user(callback.from_user.id)
-    if not _can_act(reminder, viewer):
+    if not reminder or not viewer or not _can_act(reminder, viewer):
         await callback.answer('Нет доступа', show_alert=True)
+        return
+    if reminder.get('owner_user_id') == viewer['user_id']:
+        await confirm_done(reminder_id)
+        reminder = await get_reminder(reminder_id)
+        await callback.answer('Задача подтверждена')
+        await callback.message.edit_reply_markup(reply_markup=None)
         return
     await mark_done(reminder_id)
     reminder = await get_reminder(reminder_id)
-    await _notify_owner(callback, reminder, viewer, 'Выполнено')
-    await callback.answer('Отмечено как выполнено')
+    owner_id = reminder.get('owner_user_id')
+    if owner_id and owner_id != viewer['user_id']:
+        from app.keyboards.reminders import owner_confirmation_actions
+        try:
+            await callback.bot.send_message(
+                owner_id,
+                owner_confirmation_notification(reminder, user_label(viewer, viewer.get('user_id'))),
+                parse_mode='HTML',
+                reply_markup=owner_confirmation_actions(reminder_id, bool(reminder.get('assignee_can_edit'))),
+            )
+        except Exception:
+            pass
+    await callback.answer('Отмечено как выполнено. Ожидается подтверждение постановщика')
     await callback.message.edit_reply_markup(reply_markup=None)
 
+
+
+
+@router.callback_query(F.data.startswith('confirmdone:'))
+async def confirm_done_handler(callback: CallbackQuery) -> None:
+    reminder_id = int(callback.data.split(':', 1)[1])
+    reminder = await get_reminder(reminder_id)
+    viewer = await get_user(callback.from_user.id)
+    if not reminder or not viewer or not (viewer.get('role') in {'admin', 'manager'} or reminder.get('owner_user_id') == viewer['user_id']):
+        await callback.answer('Нет доступа', show_alert=True)
+        return
+    await confirm_done(reminder_id)
+    reminder = await get_reminder(reminder_id)
+    assignee_id = reminder.get('assigned_user_id')
+    if assignee_id and assignee_id != viewer['user_id']:
+        try:
+            await callback.bot.send_message(assignee_id, assignee_feedback_notification(reminder, '🔵 Выполнение подтверждено'), parse_mode='HTML')
+        except Exception:
+            pass
+    await callback.answer('Выполнение подтверждено')
+    await callback.message.edit_reply_markup(reply_markup=None)
+
+
+@router.callback_query(F.data.startswith('returnwork:'))
+async def return_work_handler(callback: CallbackQuery) -> None:
+    reminder_id = int(callback.data.split(':', 1)[1])
+    reminder = await get_reminder(reminder_id)
+    viewer = await get_user(callback.from_user.id)
+    if not reminder or not viewer or not (viewer.get('role') in {'admin', 'manager'} or reminder.get('owner_user_id') == viewer['user_id']):
+        await callback.answer('Нет доступа', show_alert=True)
+        return
+    await return_to_work(reminder_id)
+    reminder = await get_reminder(reminder_id)
+    assignee_id = reminder.get('assigned_user_id')
+    if assignee_id and assignee_id != viewer['user_id']:
+        try:
+            await callback.bot.send_message(assignee_id, assignee_feedback_notification(reminder, '🔁 Задача возвращена в работу'), parse_mode='HTML')
+        except Exception:
+            pass
+    await callback.answer('Задача возвращена в работу')
+    await callback.message.edit_reply_markup(reply_markup=None)
 
 @router.callback_query(F.data.startswith('comment:'))
 async def comment_start(callback: CallbackQuery, state: FSMContext) -> None:

@@ -349,7 +349,7 @@ async def send_reminders_page(target: Message | CallbackQuery, user_id: int, pag
         reminder['attachments_count'] = await count_attachments(reminder['id'])
         mode = await _mode_for_user(reminder, user_id)
         text = (header + "\n\n" if idx == 0 else "") + reminder_card(reminder, dt_local, user_label(owner, reminder.get('owner_user_id')), user_label(assignee, reminder.get('assigned_user_id')), mode)
-        kb = reminder_actions(reminder['id'], 'assignee' if mode == 'assigned' and not reminder.get('assignee_can_edit') else 'owner', bool(reminder.get('assignee_can_edit')))
+        kb = reminder_actions(reminder['id'], 'assignee' if mode == 'assigned' and not reminder.get('assignee_can_edit') else 'owner', bool(reminder.get('assignee_can_edit')), reminder.get('status'))
         if isinstance(target, Message):
             await target.answer(text, parse_mode='HTML', reply_markup=kb)
         else:
@@ -376,7 +376,7 @@ async def send_assigned_page(target: Message | CallbackQuery, user_id: int, page
         owner = await get_user(reminder.get('owner_user_id'))
         reminder['attachments_count'] = await count_attachments(reminder['id'])
         text = (header + "\n\n" if idx == 0 else "") + reminder_card(reminder, dt_local, owner_label=user_label(owner, reminder.get('owner_user_id')), mode='assigned')
-        kb = reminder_actions(reminder['id'], 'assignee', bool(reminder.get('assignee_can_edit')))
+        kb = reminder_actions(reminder['id'], 'assignee', bool(reminder.get('assignee_can_edit')), reminder.get('status'))
         if isinstance(target, Message): await target.answer(text, parse_mode='HTML', reply_markup=kb)
         else: await target.message.answer(text, parse_mode='HTML', reply_markup=kb)
     pg = pager(page, total_pages, prefix='assignpage')
@@ -399,7 +399,7 @@ async def send_owner_page(target: Message | CallbackQuery, user_id: int, page: i
         assignee = await get_user(reminder.get('assigned_user_id'))
         reminder['attachments_count'] = await count_attachments(reminder['id'])
         text = (header + "\n\n" if idx == 0 else "") + reminder_card(reminder, dt_local, assignee_label=user_label(assignee, reminder.get('assigned_user_id')), mode='owner')
-        kb = reminder_actions(reminder['id'], 'owner', bool(reminder.get('assignee_can_edit')))
+        kb = reminder_actions(reminder['id'], 'owner', bool(reminder.get('assignee_can_edit')), reminder.get('status'))
         if isinstance(target, Message): await target.answer(text, parse_mode='HTML', reply_markup=kb)
         else: await target.message.answer(text, parse_mode='HTML', reply_markup=kb)
     pg = pager(page, total_pages, prefix='ownerpage')

@@ -17,10 +17,12 @@ CATEGORY_LABELS = {
 }
 
 STATUS_LABELS = {
-    'active': 'Активно',
-    'done': 'Выполнено',
-    'snoozed': 'Отложено',
-    'sent': 'Ждет подтверждения',
+    'active': 'Назначено',
+    'in_progress': '🟡 В работе',
+    'pending_confirmation': '🟢 Выполнено (ждёт подтверждения)',
+    'confirmed': '🔵 Подтверждено',
+    'overdue': '🔴 Просрочено',
+    'snoozed': '⏸ Отложено',
     'cancelled': 'Отменено',
 }
 
@@ -85,6 +87,32 @@ def owner_status_notification(reminder: dict, actor_label: str, action_text: str
     return msg
 
 
+def owner_confirmation_notification(reminder: dict, actor_label: str) -> str:
+    return (
+        f'<b>📣 Исполнитель отметил задачу как выполненную</b>\n\n'
+        f'📌 {escape(reminder["text"])}\n'
+        f'👤 Исполнитель: {escape(actor_label)}\n'
+        f'📍 Статус: 🟢 Выполнено (ждёт подтверждения)'
+    )
+
+
+def assignee_feedback_notification(reminder: dict, action_text: str) -> str:
+    return (
+        f'<b>{escape(action_text)}</b>\n\n'
+        f'📌 {escape(reminder["text"])}\n'
+        f'📍 Статус: {STATUS_LABELS.get(reminder.get("status"), reminder.get("status", "—"))}'
+    )
+
+
+def overdue_notification(reminder: dict, role: str) -> str:
+    title = '⛔ Задача просрочена' if role == 'assignee' else '⚠ Задача просрочена'
+    return (
+        f'<b>{title}</b>\n\n'
+        f'📌 {escape(reminder["text"])}\n'
+        f'📍 Статус: {STATUS_LABELS.get("overdue")}'
+    )
+
+
 def reminder_card(reminder: dict, when_local: datetime, owner_label: str | None = None, assignee_label: str | None = None, mode: str = 'shared') -> str:
     note = f'\n📝 {escape(reminder["note"])}' if reminder.get('note') else ''
     assignee_comment = f'\n💬 Комментарий исполнителя: {escape(reminder["assignee_comment"])}' if reminder.get('assignee_comment') else ''
@@ -102,9 +130,9 @@ def reminder_card(reminder: dict, when_local: datetime, owner_label: str | None 
             participants.append(f'👥 Исполнитель: {escape(assignee_label)}')
     participant_block = ('\n' + '\n'.join(participants)) if participants else ''
     return (
-        f'<b>📌 {escape(reminder["text"])}</b>\n\n'
-        f'📅 {when_local.strftime("%d.%m.%Y %H:%M")}\n'
-        f'{CATEGORY_LABELS.get(reminder["category"], reminder["category"])} · {PRIORITY_LABELS.get(reminder["priority"], reminder["priority"])}\n'
+        f'<b>📌 {escape(reminder["text"])}<\/b>\n\n'.replace('<\\/b>', '</b>') +
+        f'📅 {when_local.strftime("%d.%m.%Y %H:%M")}\n' +
+        f'{CATEGORY_LABELS.get(reminder["category"], reminder["category"])} · {PRIORITY_LABELS.get(reminder["priority"], reminder["priority"])}\n' +
         f'📌 Статус: {status}{participant_block}{note}{assignee_comment}{attachments}'
     )
 
@@ -123,9 +151,10 @@ def list_line(reminder: dict, when_local: datetime, owner_label: str | None = No
     elif mode == 'assigned' and owner_label:
         detail = f'\n  👤 Постановщик: {escape(owner_label)}'
     attachments = f'\n  📎 Вложений: {int(reminder.get("attachments_count", 0))}' if reminder.get('attachments_count') else ''
+    status = STATUS_LABELS.get(reminder['status'], reminder['status'])
     return (
         f'• <b>{when_local.strftime("%d.%m %H:%M")}</b> — {escape(reminder["text"])}\n'
-        f'  {CATEGORY_LABELS.get(reminder["category"], reminder["category"])} · {PRIORITY_LABELS.get(reminder["priority"], reminder["priority"])}{detail}{attachments}'
+        f'  {CATEGORY_LABELS.get(reminder["category"], reminder["category"])} · {PRIORITY_LABELS.get(reminder["priority"], reminder["priority"])} · {status}{detail}{attachments}'
     )
 
 

@@ -9,6 +9,11 @@ from app.utils.time import utc_iso
 
 
 BASE_SCOPE = "(owner_user_id = ? OR assigned_user_id = ?)"
+VISIBLE_STATUSES = ('active', 'in_progress', 'pending_confirmation', 'confirmed', 'overdue', 'snoozed')
+
+
+def _visible_statuses_sql() -> str:
+    return ','.join('?' for _ in VISIBLE_STATUSES)
 
 
 async def create_reminder(owner_user_id: int, assigned_user_id: int, text: str, scheduled_at_utc: str, category: str, priority: str, note: str | None = None) -> int:
@@ -86,18 +91,22 @@ async def list_by_time_window(user_id: int, start_utc: str, end_utc: str) -> lis
         db.row_factory = aiosqlite.Row
         cur = await db.execute(
             f"SELECT * FROM reminders WHERE {BASE_SCOPE} AND status IN ('active','snoozed','sent') AND scheduled_at_utc >= ? AND scheduled_at_utc < ? ORDER BY scheduled_at_utc ASC",
-            (user_id, user_id, start_utc, end_utc),
+            (user_id, user_id, *VISIBLE_STATUSES, start_utc, end_utc),
         )
         return [dict(r) for r in await cur.fetchall()]
 
 
 async def list_overdue(user_id: int) -> list[dict]:
-    now = datetime.now(timezone.utc).isoformat()
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
         cur = await db.execute(
-            f"SELECT * FROM reminders WHERE {BASE_SCOPE} AND status = 'sent' AND scheduled_at_utc < ? ORDER BY scheduled_at_utc DESC",
-            (user_id, user_id, now),
+            f"""
+            SELECT * FROM reminders
+            WHERE {BASE_SCOPE}
+              AND status = 'overdue'
+            ORDER BY scheduled_at_utc DESC
+            """,
+            (user_id, user_id),
         )
         return [dict(r) for r in await cur.fetchall()]
 
@@ -115,7 +124,7 @@ async def search_reminders(user_id: int, query: str, limit: int = 10) -> list[di
 
 async def mark_done(reminder_id: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("UPDATE reminders SET status = 'done', completed_at = ?, updated_at = ? WHERE id = ?", (utc_iso(), utc_iso(), reminder_id))
+        await db.execute("UPDATE reminders SET status = 'pending_confirmation', completed_at = ?, updated_at = ? WHERE id = ?", (utc_iso(), utc_iso(), reminder_id))
         await db.commit()
 
 
@@ -132,7 +141,7 @@ async def snooze(reminder_id: int, minutes: int) -> None:
     current = datetime.fromisoformat(reminder["scheduled_at_utc"])
     next_dt = max(current, datetime.now(timezone.utc)) + timedelta(minutes=minutes)
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("UPDATE reminders SET status = 'snoozed', scheduled_at_utc = ?, updated_at = ? WHERE id = ?", (next_dt.isoformat(), utc_iso(), reminder_id))
+        await db.execute("UPDATE reminders SET status = 'snoozed', scheduled_at_utc = ?, overdue_notified_at = NULL, updated_at = ? WHERE id = ?", (next_dt.isoformat(), utc_iso(), reminder_id))
         await db.commit()
 
 
@@ -144,7 +153,7 @@ async def update_text(reminder_id: int, new_text: str) -> None:
 
 async def update_when(reminder_id: int, scheduled_at_utc: str) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute("UPDATE reminders SET scheduled_at_utc = ?, status = 'active', updated_at = ? WHERE id = ?", (scheduled_at_utc, utc_iso(), reminder_id))
+        await db.execute("UPDATE reminders SET scheduled_at_utc = ?, status = 'active', overdue_notified_at = NULL, updated_at = ? WHERE id = ?", (scheduled_at_utc, utc_iso(), reminder_id))
         await db.commit()
 
 
@@ -221,7 +230,7 @@ async def list_month_counts(user_id: int, start_utc: str, end_utc: str) -> dict[
     async with aiosqlite.connect(DB_PATH) as db:
         cur = await db.execute(
             f"SELECT substr(scheduled_at_utc, 1, 10) as day_key, COUNT(*) FROM reminders WHERE {BASE_SCOPE} AND scheduled_at_utc >= ? AND scheduled_at_utc < ? AND status IN ('active','snoozed','sent','done') GROUP BY day_key",
-            (user_id, user_id, start_utc, end_utc),
+            (user_id, user_id, *VISIBLE_STATUSES, start_utc, end_utc),
         )
         return {row[0]: row[1] for row in await cur.fetchall()}
 
