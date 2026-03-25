@@ -19,7 +19,7 @@ async def open_tasks_menu(message: Message) -> None:
 async def open_team_menu(message: Message) -> None:
     await message.answer(
         "📊 Раздел команды\n\n"
-        "Здесь собраны статистика по сотрудникам, админка и командные списки задач.",
+        "Здесь собраны статистика по сотрудникам и админка.",
         reply_markup=team_menu(),
     )
 
