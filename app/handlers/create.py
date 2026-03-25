@@ -9,9 +9,11 @@ from aiogram.types import CallbackQuery, Message
 
 from app.keyboards.create import assignee_kb, categories_kb, note_kb, priorities_kb
 from app.keyboards.menu import main_menu
-from app.services.reminders import create_reminder
+from app.keyboards.reminders import assignee_actions
+from app.services.reminders import create_reminder, get_reminder
 from app.services.users import get_user, list_users
-from app.utils.time import parse_user_time
+from app.utils.formatting import assignment_notification, user_label
+from app.utils.time import parse_user_time, to_local
 
 router = Router()
 
@@ -35,12 +37,7 @@ async def start_create(message: Message, state: FSMContext) -> None:
 
 @router.message(F.text == "⚡ Быстро")
 async def quick_create_hint(message: Message) -> None:
-    await message.answer(
-        "Отправь одной строкой:\n"
-        "<code>Текст | завтра в 9</code>\n\n"
-        "Пример:\n<code>Позвонить клиенту | завтра в 9</code>",
-        parse_mode="HTML",
-    )
+    await message.answer("Отправь одной строкой:\n<code>Текст | завтра в 9</code>", parse_mode="HTML")
 
 
 @router.message(CreateReminder.text)
@@ -62,11 +59,7 @@ async def got_category(callback: CallbackQuery, state: FSMContext) -> None:
 async def got_priority(callback: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(priority=callback.data.split(":", 1)[1])
     await state.set_state(CreateReminder.note)
-    await callback.message.answer(
-        "<b>Шаг 4/6</b>\nДобавь заметку к задаче или пропусти шаг.",
-        parse_mode="HTML",
-        reply_markup=note_kb(),
-    )
+    await callback.message.answer("<b>Шаг 4/6</b>\nДобавь заметку к задаче или пропусти шаг.", parse_mode="HTML", reply_markup=note_kb())
     await callback.answer()
 
 
@@ -75,11 +68,7 @@ async def skip_note(callback: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(note=None)
     await state.set_state(CreateReminder.assignee)
     users = await list_users(exclude_user_id=callback.from_user.id)
-    await callback.message.answer(
-        "<b>Шаг 5/6</b>\nКому делегировать задачу? По умолчанию можно назначить себе.",
-        parse_mode="HTML",
-        reply_markup=assignee_kb(users, callback.from_user.id),
-    )
+    await callback.message.answer("<b>Шаг 5/6</b>\nКому делегировать задачу?", parse_mode="HTML", reply_markup=assignee_kb(users, callback.from_user.id))
     await callback.answer()
 
 
@@ -88,11 +77,7 @@ async def got_note(message: Message, state: FSMContext) -> None:
     await state.update_data(note=message.text.strip())
     await state.set_state(CreateReminder.assignee)
     users = await list_users(exclude_user_id=message.from_user.id)
-    await message.answer(
-        "<b>Шаг 5/6</b>\nКому делегировать задачу? По умолчанию можно назначить себе.",
-        parse_mode="HTML",
-        reply_markup=assignee_kb(users, message.from_user.id),
-    )
+    await message.answer("<b>Шаг 5/6</b>\nКому делегировать задачу?", parse_mode="HTML", reply_markup=assignee_kb(users, message.from_user.id))
 
 
 @router.callback_query(CreateReminder.assignee, F.data.startswith("assign:"))
@@ -105,14 +90,7 @@ async def got_assignee(callback: CallbackQuery, state: FSMContext) -> None:
         return
     await state.update_data(assigned_user_id=int(value))
     await state.set_state(CreateReminder.when)
-    await callback.message.answer(
-        "<b>Шаг 6/6</b>\nКогда прислать уведомление?\n\n"
-        "Примеры:\n"
-        "• <code>2026-03-30 14:45</code>\n"
-        "• <code>завтра в 9</code>\n"
-        "• <code>через 2 часа</code>",
-        parse_mode="HTML",
-    )
+    await callback.message.answer("<b>Шаг 6/6</b>\nКогда прислать уведомление?\n\nПримеры:\n• <code>2026-03-30 14:45</code>\n• <code>завтра в 9</code>\n• <code>через 2 часа</code>", parse_mode="HTML")
     await callback.answer()
 
 
@@ -127,66 +105,44 @@ async def got_assignee_manual(message: Message, state: FSMContext) -> None:
         return
     await state.update_data(assigned_user_id=int(message.text))
     await state.set_state(CreateReminder.when)
-    await message.answer(
-        "<b>Шаг 6/6</b>\nКогда прислать уведомление?\n\n"
-        "Примеры:\n"
-        "• <code>2026-03-30 14:45</code>\n"
-        "• <code>завтра в 9</code>\n"
-        "• <code>через 2 часа</code>",
-        parse_mode="HTML",
-    )
+    await message.answer("<b>Шаг 6/6</b>\nКогда прислать уведомление?\n\nПримеры:\n• <code>2026-03-30 14:45</code>\n• <code>завтра в 9</code>\n• <code>через 2 часа</code>", parse_mode="HTML")
 
 
 @router.message(CreateReminder.when)
 async def got_when(message: Message, state: FSMContext) -> None:
-    user = await get_user(message.from_user.id)
-    if not user:
+    creator = await get_user(message.from_user.id)
+    if not creator:
         await message.answer("Сначала нажми /start")
         return
     try:
-        dt_local = parse_user_time(message.text, user["timezone_name"])
+        dt_local = parse_user_time(message.text, creator["timezone_name"])
     except ValueError:
-        await message.answer(
-            "Не понял дату/время. Попробуй так: <code>завтра в 9</code> или <code>2026-03-30 14:45</code>",
-            parse_mode="HTML",
-        )
+        await message.answer("Не понял дату/время. Попробуй: <code>завтра в 9</code> или <code>2026-03-30 14:45</code>", parse_mode="HTML")
         return
 
     data = await state.get_data()
     assigned_user_id = int(data.get("assigned_user_id") or message.from_user.id)
-    reminder_id = await create_reminder(
-        owner_user_id=message.from_user.id,
-        assigned_user_id=assigned_user_id,
-        text=data["text"],
-        scheduled_at_utc=dt_local.astimezone(timezone.utc).isoformat(),
-        category=data["category"],
-        priority=data["priority"],
-        note=data.get("note"),
-    )
+    reminder_id = await create_reminder(message.from_user.id, assigned_user_id, data["text"], dt_local.astimezone(timezone.utc).isoformat(), data["category"], data["priority"], data.get("note"))
     await state.clear()
-    delegated = "себе" if assigned_user_id == message.from_user.id else f"пользователю ID {assigned_user_id}"
-    await message.answer(
-        f"✅ Напоминание создано. ID: {reminder_id}\n📅 {dt_local.strftime('%d.%m.%Y %H:%M')}\n👤 Назначено: {delegated}",
-        reply_markup=main_menu(),
-    )
+    assignee = await get_user(assigned_user_id)
+    delegated = "себе" if assigned_user_id == message.from_user.id else user_label(assignee, assigned_user_id)
+    await message.answer(f"✅ Задача создана. ID: {reminder_id}\n📅 {dt_local.strftime('%d.%m.%Y %H:%M')}\n👤 Назначено: {delegated}", reply_markup=main_menu())
+
+    if assigned_user_id != message.from_user.id and assignee:
+        reminder = await get_reminder(reminder_id)
+        local_for_assignee = to_local(dt_local.astimezone(timezone.utc), assignee['timezone_name'])
+        await message.bot.send_message(assigned_user_id, assignment_notification(reminder, local_for_assignee, user_label(creator, creator['user_id'])), parse_mode='HTML', reply_markup=assignee_actions(reminder_id))
 
 
 @router.message(F.text.contains("|"))
 async def quick_create(message: Message) -> None:
-    user = await get_user(message.from_user.id)
-    if not user:
+    creator = await get_user(message.from_user.id)
+    if not creator:
         return
     left, right = [x.strip() for x in message.text.split("|", 1)]
     try:
-        dt_local = parse_user_time(right, user["timezone_name"])
+        dt_local = parse_user_time(right, creator["timezone_name"])
     except ValueError:
         return
-    reminder_id = await create_reminder(
-        message.from_user.id,
-        message.from_user.id,
-        left,
-        dt_local.astimezone(timezone.utc).isoformat(),
-        "work",
-        "medium",
-    )
-    await message.answer(f"✅ Быстрое напоминание создано. ID: {reminder_id}")
+    reminder_id = await create_reminder(message.from_user.id, message.from_user.id, left, dt_local.astimezone(timezone.utc).isoformat(), "work", "medium")
+    await message.answer(f"✅ Быстрая задача создана. ID: {reminder_id}")

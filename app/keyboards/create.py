@@ -21,9 +21,8 @@ def note_kb() -> InlineKeyboardMarkup:
 
 
 def assignee_kb(users: list[dict], selected_user_id: int) -> InlineKeyboardMarkup:
-    rows = []
-    rows.append([InlineKeyboardButton(text="✅ Назначить себе", callback_data=f"assign:{selected_user_id}")])
-    for user in users[:10]:
+    rows = [[InlineKeyboardButton(text="✅ Назначить себе", callback_data=f"assign:{selected_user_id}")]]
+    for user in users[:20]:
         label = f"@{user['username']}" if user.get('username') else user.get('full_name') or str(user['user_id'])
         rows.append([InlineKeyboardButton(text=f"👤 {label}", callback_data=f"assign:{user['user_id']}")])
     rows.append([InlineKeyboardButton(text="✍️ Ввести ID вручную", callback_data="assign:manual")])

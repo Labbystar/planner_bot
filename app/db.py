@@ -47,6 +47,14 @@ async def init_db() -> None:
         """)
         await _add_column_if_missing(db, 'reminders', 'assigned_user_id', 'assigned_user_id INTEGER')
         await _add_column_if_missing(db, 'reminders', 'note', 'note TEXT')
-        await db.execute("UPDATE reminders SET assigned_user_id = owner_user_id WHERE assigned_user_id IS NULL")
+        await _add_column_if_missing(db, 'reminders', 'assignee_can_edit', 'assignee_can_edit INTEGER NOT NULL DEFAULT 0')
         await _add_column_if_missing(db, 'users', 'is_active', 'is_active INTEGER NOT NULL DEFAULT 1')
+        await _add_column_if_missing(db, 'users', 'role', "role TEXT NOT NULL DEFAULT 'user'")
+        await db.execute("UPDATE reminders SET assigned_user_id = owner_user_id WHERE assigned_user_id IS NULL")
+        cur = await db.execute("SELECT COUNT(*) FROM users WHERE COALESCE(role, 'user') = 'admin'")
+        if (await cur.fetchone())[0] == 0:
+            cur = await db.execute("SELECT user_id FROM users ORDER BY created_at ASC, user_id ASC LIMIT 1")
+            row = await cur.fetchone()
+            if row:
+                await db.execute("UPDATE users SET role = 'admin' WHERE user_id = ?", (row[0],))
         await db.commit()

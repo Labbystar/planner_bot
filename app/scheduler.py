@@ -6,7 +6,8 @@ from aiogram import Bot
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from app.keyboards.reminders import reminder_actions
+from app.keyboards.reminders import assignee_actions
+from app.services.reminders import mark_sent
 from app.services.users import get_user
 from app.utils.formatting import compact_notification
 from app.utils.time import to_local
@@ -27,7 +28,6 @@ def _is_quiet(local_dt: datetime, user: dict) -> bool:
 
 async def tick(bot: Bot) -> None:
     now = datetime.now(timezone.utc)
-
     import aiosqlite
     from app.config import DB_PATH
     async with aiosqlite.connect(DB_PATH) as db:
@@ -44,8 +44,8 @@ async def tick(bot: Bot) -> None:
             if _is_quiet(local_dt, user):
                 continue
             text = compact_notification(reminder["text"], local_dt, reminder["priority"], reminder["category"], reminder.get("note"))
-            await bot.send_message(user["user_id"], text, reply_markup=reminder_actions(reminder["id"]))
-            await db.execute("UPDATE reminders SET status = 'sent', updated_at = ? WHERE id = ?", (now.isoformat(), reminder['id']))
+            await bot.send_message(user["user_id"], text, reply_markup=assignee_actions(reminder["id"]))
+            await mark_sent(reminder['id'])
         await db.commit()
 
 

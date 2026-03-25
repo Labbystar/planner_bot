@@ -21,12 +21,22 @@ STATUS_LABELS = {
     "done": "Выполнено",
     "snoozed": "Отложено",
     "sent": "Ждет подтверждения",
+    "cancelled": "Отменено",
 }
 
 MONTHS_RU = {
     1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель", 5: "Май", 6: "Июнь",
     7: "Июль", 8: "Август", 9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь",
 }
+
+
+def user_label(user: dict | None, fallback_id: int | None = None) -> str:
+    if user:
+        if user.get('username'):
+            return '@' + user['username']
+        if user.get('full_name'):
+            return user['full_name']
+    return f'ID {fallback_id}' if fallback_id else '—'
 
 
 def compact_notification(text: str, when_local: datetime, priority: str, category: str, note: str | None = None) -> str:
@@ -45,17 +55,42 @@ def compact_notification(text: str, when_local: datetime, priority: str, categor
     )
 
 
-def reminder_card(reminder: dict, when_local: datetime) -> str:
+def assignment_notification(reminder: dict, when_local: datetime, owner_label: str) -> str:
+    note = ""
+    if reminder.get('note'):
+        compact = str(reminder['note']).strip().replace("\n", " ")
+        if len(compact) > 50:
+            compact = compact[:47] + '...'
+        note = f"\n📝 {escape(compact)}"
+    return (
+        f"<b>📥 Вам поставлена задача</b>\n\n"
+        f"📌 {escape(reminder['text'])}\n"
+        f"📅 Срок: {when_local.strftime('%d.%m.%Y %H:%M')}\n"
+        f"🚦 Приоритет: {PRIORITY_LABELS.get(reminder['priority'], reminder['priority'])}\n"
+        f"📂 Категория: {CATEGORY_LABELS.get(reminder['category'], reminder['category'])}\n"
+        f"👤 Постановщик: {escape(owner_label)}{note}"
+    )
+
+
+def reminder_card(reminder: dict, when_local: datetime, owner_label: str | None = None, assignee_label: str | None = None, mode: str = 'shared') -> str:
     note = f"\n📝 {escape(reminder['note'])}" if reminder.get("note") else ""
     status = STATUS_LABELS.get(reminder["status"], reminder["status"])
-    delegated = ""
-    if reminder.get("assigned_user_id") and reminder.get("assigned_user_id") != reminder.get("owner_user_id"):
-        delegated = f"\n👤 Делегировано: ID {reminder['assigned_user_id']}"
+    participants = []
+    if mode == 'owner':
+        participants.append(f"👤 Исполнитель: {escape(assignee_label or '—')}")
+    elif mode == 'assigned':
+        participants.append(f"👤 Постановщик: {escape(owner_label or '—')}")
+    else:
+        if owner_label:
+            participants.append(f"👤 Постановщик: {escape(owner_label)}")
+        if assignee_label:
+            participants.append(f"👥 Исполнитель: {escape(assignee_label)}")
+    participant_block = ("\n" + "\n".join(participants)) if participants else ""
     return (
-        f"<b>⏰ {escape(reminder['text'])}</b>\n\n"
+        f"<b>📌 {escape(reminder['text'])}</b>\n\n"
         f"📅 {when_local.strftime('%d.%m.%Y %H:%M')}\n"
         f"{CATEGORY_LABELS.get(reminder['category'], reminder['category'])} · {PRIORITY_LABELS.get(reminder['priority'], reminder['priority'])}\n"
-        f"📌 Статус: {status}{delegated}{note}"
+        f"📌 Статус: {status}{participant_block}{note}"
     )
 
 
@@ -66,13 +101,15 @@ def page_header(title: str, page: int, total_pages: int, subtitle: str | None = 
     return base
 
 
-def list_line(reminder: dict, when_local: datetime) -> str:
-    delegated = ""
-    if reminder.get("assigned_user_id") and reminder.get("assigned_user_id") != reminder.get("owner_user_id"):
-        delegated = f"\n  👤 ID {reminder['assigned_user_id']}"
+def list_line(reminder: dict, when_local: datetime, owner_label: str | None = None, assignee_label: str | None = None, mode: str = 'shared') -> str:
+    detail = ""
+    if mode == 'owner' and assignee_label:
+        detail = f"\n  👤 Исполнитель: {escape(assignee_label)}"
+    elif mode == 'assigned' and owner_label:
+        detail = f"\n  👤 Постановщик: {escape(owner_label)}"
     return (
         f"• <b>{when_local.strftime('%d.%m %H:%M')}</b> — {escape(reminder['text'])}\n"
-        f"  {CATEGORY_LABELS.get(reminder['category'], reminder['category'])} · {PRIORITY_LABELS.get(reminder['priority'], reminder['priority'])}{delegated}"
+        f"  {CATEGORY_LABELS.get(reminder['category'], reminder['category'])} · {PRIORITY_LABELS.get(reminder['priority'], reminder['priority'])}{detail}"
     )
 
 

@@ -1,22 +1,27 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
-def reminder_actions(reminder_id: int) -> InlineKeyboardMarkup:
+def assignee_actions(reminder_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
+            InlineKeyboardButton(text="👁 Принял", callback_data=f"accept:{reminder_id}"),
             InlineKeyboardButton(text="✅ Выполнено", callback_data=f"done:{reminder_id}"),
-            InlineKeyboardButton(text="⏰ Отложить", callback_data=f"snzmenu:{reminder_id}"),
         ],
-        [
-            InlineKeyboardButton(text="✏️ Текст", callback_data=f"edittext:{reminder_id}"),
-            InlineKeyboardButton(text="🕓 Время", callback_data=f"edittime:{reminder_id}"),
-        ],
-        [
-            InlineKeyboardButton(text="📂 Категория", callback_data=f"editcatmenu:{reminder_id}"),
-            InlineKeyboardButton(text="🚦 Приоритет", callback_data=f"editpriomenu:{reminder_id}"),
-        ],
-        [InlineKeyboardButton(text="🗑 Удалить", callback_data=f"del:{reminder_id}")],
+        [InlineKeyboardButton(text="⏰ Отложить", callback_data=f"snzmenu:{reminder_id}")],
     ])
+
+
+def owner_actions(reminder_id: int, assignee_can_edit: bool = False) -> InlineKeyboardMarkup:
+    lock_label = "🔓 Разрешить редакт." if not assignee_can_edit else "🔒 Запретить редакт."
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✏️ Текст", callback_data=f"edittext:{reminder_id}"), InlineKeyboardButton(text="🕓 Время", callback_data=f"edittime:{reminder_id}")],
+        [InlineKeyboardButton(text="📂 Категория", callback_data=f"editcatmenu:{reminder_id}"), InlineKeyboardButton(text="🚦 Приоритет", callback_data=f"editpriomenu:{reminder_id}")],
+        [InlineKeyboardButton(text=lock_label, callback_data=f"toggleedit:{reminder_id}"), InlineKeyboardButton(text="🗑 Удалить", callback_data=f"del:{reminder_id}")],
+    ])
+
+
+def reminder_actions(reminder_id: int, mode: str = 'owner', assignee_can_edit: bool = False) -> InlineKeyboardMarkup:
+    return assignee_actions(reminder_id) if mode == 'assignee' else owner_actions(reminder_id, assignee_can_edit)
 
 
 def snooze_kb(reminder_id: int) -> InlineKeyboardMarkup:
@@ -41,16 +46,13 @@ def priority_edit_kb(reminder_id: int) -> InlineKeyboardMarkup:
     ])
 
 
-def pager(page: int, total_pages: int) -> InlineKeyboardMarkup | None:
-    buttons = []
+def pager(page: int, total_pages: int, prefix: str = 'page') -> InlineKeyboardMarkup | None:
     row = []
     if page > 1:
-        row.append(InlineKeyboardButton(text="⬅️", callback_data=f"page:{page-1}"))
+        row.append(InlineKeyboardButton(text="⬅️", callback_data=f"{prefix}:{page-1}"))
     if page < total_pages:
-        row.append(InlineKeyboardButton(text="➡️", callback_data=f"page:{page+1}"))
-    if row:
-        buttons.append(row)
-    return InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+        row.append(InlineKeyboardButton(text="➡️", callback_data=f"{prefix}:{page+1}"))
+    return InlineKeyboardMarkup(inline_keyboard=[row]) if row else None
 
 
 def settings_kb(enabled: bool) -> InlineKeyboardMarkup:
@@ -66,26 +68,13 @@ def settings_kb(enabled: bool) -> InlineKeyboardMarkup:
 
 def active_filters_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="Все", callback_data="flt:all"),
-            InlineKeyboardButton(text="Работа", callback_data="flt:work"),
-            InlineKeyboardButton(text="Личное", callback_data="flt:personal"),
-        ],
-        [
-            InlineKeyboardButton(text="Финансы", callback_data="flt:finance"),
-            InlineKeyboardButton(text="Важное", callback_data="flt:important"),
-            InlineKeyboardButton(text="🔴 High", callback_data="fltprio:high"),
-        ],
+        [InlineKeyboardButton(text="Все", callback_data="flt:all"), InlineKeyboardButton(text="Работа", callback_data="flt:work"), InlineKeyboardButton(text="Личное", callback_data="flt:personal")],
+        [InlineKeyboardButton(text="Финансы", callback_data="flt:finance"), InlineKeyboardButton(text="Важное", callback_data="flt:important"), InlineKeyboardButton(text="🔴 High", callback_data="fltprio:high")],
     ])
 
 
 def calendar_kb(year: int, month: int, month_days: list[list[int]], day_counts: dict[str, int]) -> InlineKeyboardMarkup:
-    rows = [
-        [InlineKeyboardButton(text="Пн", callback_data="noop"), InlineKeyboardButton(text="Вт", callback_data="noop"),
-         InlineKeyboardButton(text="Ср", callback_data="noop"), InlineKeyboardButton(text="Чт", callback_data="noop"),
-         InlineKeyboardButton(text="Пт", callback_data="noop"), InlineKeyboardButton(text="Сб", callback_data="noop"),
-         InlineKeyboardButton(text="Вс", callback_data="noop")]
-    ]
+    rows = [[InlineKeyboardButton(text=t, callback_data="noop") for t in ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]]]
     for week in month_days:
         row = []
         for day in week:
@@ -93,8 +82,7 @@ def calendar_kb(year: int, month: int, month_days: list[list[int]], day_counts: 
                 row.append(InlineKeyboardButton(text=" ", callback_data="noop"))
             else:
                 key = f"{year:04d}-{month:02d}-{day:02d}"
-                count = day_counts.get(key, 0)
-                label = f"{day}•" if count else str(day)
+                label = f"{day}•" if day_counts.get(key, 0) else str(day)
                 row.append(InlineKeyboardButton(text=label, callback_data=f"calday:{key}"))
         rows.append(row)
     rows.append([
