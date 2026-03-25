@@ -12,6 +12,7 @@ from app.keyboards.menu import main_menu
 from app.services.reminders import create_reminder
 from app.services.users import get_user, list_users
 from app.utils.datetime_parser import parse_date_input, parse_time_input
+from app.utils.formatting import CATEGORY_LABELS, PRIORITY_LABELS
 from app.utils.time import parse_user_time
 
 router = Router()
@@ -26,6 +27,54 @@ class CreateReminder(StatesGroup):
     assignee_manual = State()
     time_input = State()
     date_input = State()
+
+
+def render_user_label(user: dict | None, fallback_id: int | None = None) -> str:
+    if user:
+        if user.get("full_name"):
+            return user["full_name"]
+        if user.get("username"):
+            return f"@{user['username']}"
+        if user.get("user_id"):
+            return f"ID {user['user_id']}"
+    if fallback_id is not None:
+        return f"ID {fallback_id}"
+    return "Неизвестный пользователь"
+
+
+async def send_assignment_notification(
+    message: Message,
+    assigned_user_id: int,
+    owner_user_id: int,
+    text: str,
+    dt_local,
+    category: str,
+    priority: str,
+    note: str | None,
+) -> None:
+    if assigned_user_id == owner_user_id:
+        return
+
+    owner_user = await get_user(owner_user_id)
+    owner_label = render_user_label(owner_user, owner_user_id)
+
+    lines = [
+        "📥 Вам поставлена задача",
+        "",
+        f"📌 {text}",
+        f"📅 Срок: {dt_local.strftime('%d.%m.%Y %H:%M')}",
+        f"🚦 Приоритет: {PRIORITY_LABELS.get(priority, priority)}",
+        f"{CATEGORY_LABELS.get(category, category)}",
+        f"👤 Постановщик: {owner_label}",
+    ]
+    if note:
+        lines.append(f"📝 Комментарий: {note}")
+
+    try:
+        await message.bot.send_message(assigned_user_id, "\n".join(lines))
+    except Exception:
+        # Не валим создание задачи, если не удалось отправить уведомление исполнителю
+        pass
 
 
 @router.message(F.text == "➕ Создать")
@@ -204,12 +253,27 @@ async def got_date_input(message: Message, state: FSMContext) -> None:
         priority=data["priority"],
         note=data.get("note"),
     )
+
+    assigned_user = await get_user(assigned_user_id)
+    assigned_label = render_user_label(assigned_user, assigned_user_id)
+
+    await send_assignment_notification(
+        message=message,
+        assigned_user_id=assigned_user_id,
+        owner_user_id=message.from_user.id,
+        text=data["text"],
+        dt_local=dt_local,
+        category=data["category"],
+        priority=data["priority"],
+        note=data.get("note"),
+    )
+
     await state.clear()
-    delegated = "себе" if assigned_user_id == message.from_user.id else f"пользователю ID {assigned_user_id}"
     await message.answer(
-        f"✅ Напоминание создано. ID: {reminder_id}\n"
+        "✅ Задача создана\n"
+        f"📌 {data['text']}\n"
         f"📅 {dt_local.strftime('%d.%m.%Y %H:%M')}\n"
-        f"👤 Назначено: {delegated}",
+        f"👤 Назначено: {assigned_label}",
         reply_markup=main_menu(),
     )
 
