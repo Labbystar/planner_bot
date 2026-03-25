@@ -1,5 +1,0 @@
-ACTIVE = "active"
-DONE = "done"
-MISSED = "missed"
-SNOOZED = "snoozed"
-CANCELLED = "cancelled"

@@ -1,5 +1,0 @@
-STATUS_NEW = "new"
-STATUS_READ = "read"
-STATUS_DONE = "done"
-STATUS_FAILED = "failed"
-STATUS_SNOOZED = "snoozed"
