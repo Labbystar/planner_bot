@@ -27,7 +27,12 @@ async def create_reminder(owner_user_id: int, assigned_user_id: int, text: str, 
             (owner_user_id, assigned_user_id, text.strip(), note, category, priority, scheduled_at_utc, now, now),
         )
         await db.commit()
-        return cur.lastrowid
+        reminder_id = cur.lastrowid
+    reminder = await get_reminder(reminder_id)
+    if reminder:
+        from app.services.notifications import sync_notifications_for_reminder
+        await sync_notifications_for_reminder(reminder)
+    return reminder_id
 
 
 async def get_reminder(reminder_id: int) -> dict | None:
@@ -167,6 +172,10 @@ async def snooze(reminder_id: int, minutes: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("UPDATE reminders SET status = 'snoozed', scheduled_at_utc = ?, overdue_notified_at = NULL, updated_at = ? WHERE id = ?", (next_dt.isoformat(), utc_iso(), reminder_id))
         await db.commit()
+    reminder = await get_reminder(reminder_id)
+    if reminder:
+        from app.services.notifications import sync_notifications_for_reminder
+        await sync_notifications_for_reminder(reminder)
 
 
 async def update_text(reminder_id: int, new_text: str) -> None:
@@ -179,6 +188,10 @@ async def update_when(reminder_id: int, scheduled_at_utc: str) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("UPDATE reminders SET scheduled_at_utc = ?, status = 'active', overdue_notified_at = NULL, updated_at = ? WHERE id = ?", (scheduled_at_utc, utc_iso(), reminder_id))
         await db.commit()
+    reminder = await get_reminder(reminder_id)
+    if reminder:
+        from app.services.notifications import sync_notifications_for_reminder
+        await sync_notifications_for_reminder(reminder)
 
 
 async def update_category(reminder_id: int, category: str) -> None:
