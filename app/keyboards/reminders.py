@@ -11,7 +11,10 @@ def assignee_actions(reminder_id: int) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text="⏰ Отложить", callback_data=f"snzmenu:{reminder_id}"),
             InlineKeyboardButton(text="💬 Комментарий", callback_data=f"comment:{reminder_id}"),
         ],
-        [InlineKeyboardButton(text="📎 Вложения", callback_data=f"atts:{reminder_id}")],
+        [
+            InlineKeyboardButton(text="➕ Вложение", callback_data=f"addatt:{reminder_id}"),
+            InlineKeyboardButton(text="📎 Вложения", callback_data=f"atts:{reminder_id}"),
+        ],
     ])
 
 
@@ -19,44 +22,35 @@ def owner_confirmation_actions(reminder_id: int, assignee_can_edit: bool = False
     lock_label = "🔓 Разрешить редакт." if not assignee_can_edit else "🔒 Запретить редакт."
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✔ Подтвердить", callback_data=f"confirmdone:{reminder_id}"), InlineKeyboardButton(text="🔁 Вернуть", callback_data=f"returnwork:{reminder_id}")],
+        [InlineKeyboardButton(text="💬 Комментарий", callback_data=f"comment:{reminder_id}"), InlineKeyboardButton(text="➕ Вложение", callback_data=f"addatt:{reminder_id}")],
         [InlineKeyboardButton(text="📎 Вложения", callback_data=f"atts:{reminder_id}")],
         [InlineKeyboardButton(text=lock_label, callback_data=f"toggleedit:{reminder_id}"), InlineKeyboardButton(text="🗑 Удалить", callback_data=f"del:{reminder_id}")],
     ])
 
-
-
-
-def shared_actions(reminder_id: int, assignee_can_edit: bool = False, status: str | None = None) -> InlineKeyboardMarkup:
-    lock_label = "🔓 Разрешить редакт." if not assignee_can_edit else "🔒 Запретить редакт."
-    if status == 'pending_confirmation':
-        return owner_confirmation_actions(reminder_id, assignee_can_edit)
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="👁 Принял", callback_data=f"accept:{reminder_id}"),
-            InlineKeyboardButton(text="✅ Выполнено", callback_data=f"done:{reminder_id}"),
-        ],
-        [
-            InlineKeyboardButton(text="✏️ Текст", callback_data=f"edittext:{reminder_id}"),
-            InlineKeyboardButton(text="🕓 Время", callback_data=f"edittime:{reminder_id}"),
-        ],
-        [
-            InlineKeyboardButton(text="📂 Категория", callback_data=f"editcatmenu:{reminder_id}"),
-            InlineKeyboardButton(text="🚦 Приоритет", callback_data=f"editpriomenu:{reminder_id}"),
-        ],
-        [
-            InlineKeyboardButton(text="⏰ Отложить", callback_data=f"snzmenu:{reminder_id}"),
-            InlineKeyboardButton(text="💬 Комментарий", callback_data=f"comment:{reminder_id}"),
-        ],
-        [InlineKeyboardButton(text="📎 Вложения", callback_data=f"atts:{reminder_id}")],
-        [InlineKeyboardButton(text=lock_label, callback_data=f"toggleedit:{reminder_id}"), InlineKeyboardButton(text="🗑 Удалить", callback_data=f"del:{reminder_id}")],
-    ])
 
 def owner_actions(reminder_id: int, assignee_can_edit: bool = False) -> InlineKeyboardMarkup:
     lock_label = "🔓 Разрешить редакт." if not assignee_can_edit else "🔒 Запретить редакт."
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✏️ Текст", callback_data=f"edittext:{reminder_id}"), InlineKeyboardButton(text="🕓 Время", callback_data=f"edittime:{reminder_id}")],
+        [InlineKeyboardButton(text="👤 Исполнитель", callback_data=f"editassignee:{reminder_id}"), InlineKeyboardButton(text="💬 Комментарий", callback_data=f"comment:{reminder_id}")],
         [InlineKeyboardButton(text="📂 Категория", callback_data=f"editcatmenu:{reminder_id}"), InlineKeyboardButton(text="🚦 Приоритет", callback_data=f"editpriomenu:{reminder_id}")],
-        [InlineKeyboardButton(text="📎 Вложения", callback_data=f"atts:{reminder_id}")],
+        [InlineKeyboardButton(text="➕ Вложение", callback_data=f"addatt:{reminder_id}"), InlineKeyboardButton(text="📎 Вложения", callback_data=f"atts:{reminder_id}")],
+        [InlineKeyboardButton(text=lock_label, callback_data=f"toggleedit:{reminder_id}"), InlineKeyboardButton(text="🗑 Удалить", callback_data=f"del:{reminder_id}")],
+    ])
+
+
+def shared_actions(reminder_id: int, assignee_can_edit: bool = False, status: str | None = None) -> InlineKeyboardMarkup:
+    lock_label = "🔓 Разрешить редакт." if not assignee_can_edit else "🔒 Запретить редакт."
+    if status == 'pending_confirmation':
+        first_row = [InlineKeyboardButton(text="✔ Подтвердить", callback_data=f"confirmdone:{reminder_id}"), InlineKeyboardButton(text="🔁 Вернуть", callback_data=f"returnwork:{reminder_id}")]
+    else:
+        first_row = [InlineKeyboardButton(text="👁 Принял", callback_data=f"accept:{reminder_id}"), InlineKeyboardButton(text="✅ Выполнено", callback_data=f"done:{reminder_id}")]
+    return InlineKeyboardMarkup(inline_keyboard=[
+        first_row,
+        [InlineKeyboardButton(text="✏️ Текст", callback_data=f"edittext:{reminder_id}"), InlineKeyboardButton(text="🕓 Время", callback_data=f"edittime:{reminder_id}")],
+        [InlineKeyboardButton(text="👤 Исполнитель", callback_data=f"editassignee:{reminder_id}"), InlineKeyboardButton(text="💬 Комментарий", callback_data=f"comment:{reminder_id}")],
+        [InlineKeyboardButton(text="📂 Категория", callback_data=f"editcatmenu:{reminder_id}"), InlineKeyboardButton(text="🚦 Приоритет", callback_data=f"editpriomenu:{reminder_id}")],
+        [InlineKeyboardButton(text="➕ Вложение", callback_data=f"addatt:{reminder_id}"), InlineKeyboardButton(text="📎 Вложения", callback_data=f"atts:{reminder_id}")],
         [InlineKeyboardButton(text=lock_label, callback_data=f"toggleedit:{reminder_id}"), InlineKeyboardButton(text="🗑 Удалить", callback_data=f"del:{reminder_id}")],
     ])
 
@@ -69,6 +63,15 @@ def reminder_actions(reminder_id: int, mode: str = 'owner', assignee_can_edit: b
     if status == 'pending_confirmation':
         return owner_confirmation_actions(reminder_id, assignee_can_edit)
     return owner_actions(reminder_id, assignee_can_edit)
+
+
+def assignee_picker_kb(reminder_id: int, users: list[dict], self_user_id: int) -> InlineKeyboardMarkup:
+    rows = [[InlineKeyboardButton(text="✅ Назначить себе", callback_data=f"setassignee:{reminder_id}:{self_user_id}")]]
+    for user in users[:10]:
+        label = f"@{user['username']}" if user.get('username') else user.get('full_name') or str(user['user_id'])
+        rows.append([InlineKeyboardButton(text=f"👤 {label}", callback_data=f"setassignee:{reminder_id}:{user['user_id']}")])
+    rows.append([InlineKeyboardButton(text="✍️ Ввести ID вручную", callback_data=f"setassignee:{reminder_id}:manual")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def snooze_kb(reminder_id: int) -> InlineKeyboardMarkup:

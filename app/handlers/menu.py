@@ -26,6 +26,8 @@ from app.services.reminders import (
     search_reminders,
     stats,
     count_attachments,
+    count_comments,
+    list_comments,
 )
 from app.services.users import get_user
 from app.utils.formatting import calendar_title, list_line, page_header, reminder_card, stats_text, user_label
@@ -313,6 +315,18 @@ async def _mode_for_user(reminder: dict, user_id: int) -> str:
     return 'shared'
 
 
+async def _hydrate_reminder(reminder: dict) -> dict:
+    reminder['attachments_count'] = await count_attachments(reminder['id'])
+    reminder['comments_count'] = await count_comments(reminder['id'])
+    comments = await list_comments(reminder['id'])
+    reminder['comments_preview'] = []
+    for item in comments[-5:]:
+        author = await get_user(item.get('author_user_id'))
+        label = user_label(author, item.get('author_user_id'))
+        reminder['comments_preview'].append(f'— {label}: {item.get("comment_text", "")}')
+    return reminder
+
+
 async def send_window(message: Message, title: str, start_days: int, end_days: int) -> None:
     user = await get_user(message.from_user.id)
     if not user:
@@ -346,11 +360,11 @@ async def send_reminders_page(target: Message | CallbackQuery, user_id: int, pag
         dt_local = to_local(datetime.fromisoformat(reminder['scheduled_at_utc']), user['timezone_name'])
         owner = await get_user(reminder.get('owner_user_id'))
         assignee = await get_user(reminder.get('assigned_user_id'))
-        reminder['attachments_count'] = await count_attachments(reminder['id'])
+        reminder = await _hydrate_reminder(reminder)
         mode = await _mode_for_user(reminder, user_id)
         text = (header + "\n\n" if idx == 0 else "") + reminder_card(reminder, dt_local, user_label(owner, reminder.get('owner_user_id')), user_label(assignee, reminder.get('assigned_user_id')), mode)
-        action_mode = 'shared' if mode == 'shared' else ('assignee' if mode == 'assigned' and not reminder.get('assignee_can_edit') else 'owner')
-        kb = reminder_actions(reminder['id'], action_mode, bool(reminder.get('assignee_can_edit')), reminder.get('status'))
+        kb_mode = 'assignee' if mode == 'assigned' and not reminder.get('assignee_can_edit') else mode
+        kb = reminder_actions(reminder['id'], kb_mode, bool(reminder.get('assignee_can_edit')), reminder.get('status'))
         if isinstance(target, Message):
             await target.answer(text, parse_mode='HTML', reply_markup=kb)
         else:
@@ -375,7 +389,7 @@ async def send_assigned_page(target: Message | CallbackQuery, user_id: int, page
     for idx, reminder in enumerate(reminders):
         dt_local = to_local(datetime.fromisoformat(reminder['scheduled_at_utc']), user['timezone_name'])
         owner = await get_user(reminder.get('owner_user_id'))
-        reminder['attachments_count'] = await count_attachments(reminder['id'])
+        reminder = await _hydrate_reminder(reminder)
         text = (header + "\n\n" if idx == 0 else "") + reminder_card(reminder, dt_local, owner_label=user_label(owner, reminder.get('owner_user_id')), mode='assigned')
         kb = reminder_actions(reminder['id'], 'assignee', bool(reminder.get('assignee_can_edit')), reminder.get('status'))
         if isinstance(target, Message): await target.answer(text, parse_mode='HTML', reply_markup=kb)
@@ -398,7 +412,7 @@ async def send_owner_page(target: Message | CallbackQuery, user_id: int, page: i
     for idx, reminder in enumerate(reminders):
         dt_local = to_local(datetime.fromisoformat(reminder['scheduled_at_utc']), user['timezone_name'])
         assignee = await get_user(reminder.get('assigned_user_id'))
-        reminder['attachments_count'] = await count_attachments(reminder['id'])
+        reminder = await _hydrate_reminder(reminder)
         text = (header + "\n\n" if idx == 0 else "") + reminder_card(reminder, dt_local, assignee_label=user_label(assignee, reminder.get('assigned_user_id')), mode='owner')
         kb = reminder_actions(reminder['id'], 'owner', bool(reminder.get('assignee_can_edit')), reminder.get('status'))
         if isinstance(target, Message): await target.answer(text, parse_mode='HTML', reply_markup=kb)
@@ -451,7 +465,7 @@ async def calendar_day(callback: CallbackQuery) -> None:
     for r in rows[:20]:
         dt_local = to_local(datetime.fromisoformat(r['scheduled_at_utc']), user['timezone_name'])
         owner = await get_user(r.get('owner_user_id')); assignee = await get_user(r.get('assigned_user_id'))
-        r['attachments_count'] = await count_attachments(r['id'])
+        r = await _hydrate_reminder(r)
         lines.append(list_line(r, dt_local, user_label(owner, r.get('owner_user_id')), user_label(assignee, r.get('assigned_user_id')), await _mode_for_user(r, callback.from_user.id)))
     await callback.message.answer("\n\n".join(lines), parse_mode='HTML'); await callback.answer()
 

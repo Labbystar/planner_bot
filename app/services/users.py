@@ -37,7 +37,7 @@ async def get_user(user_id: int) -> dict | None:
 async def list_users(exclude_user_id: int | None = None) -> list[dict]:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        sql = "SELECT user_id, username, full_name, role, timezone_name, digest_enabled, digest_time_local, last_digest_date_local FROM users WHERE is_active = 1"
+        sql = "SELECT user_id, username, full_name, role FROM users WHERE is_active = 1"
         params: list[object] = []
         if exclude_user_id is not None:
             sql += " AND user_id != ?"
@@ -90,12 +90,3 @@ async def set_role(actor_user_id: int, target_user_id: int, role: str) -> bool:
         cur = await db.execute("UPDATE users SET role = ?, updated_at = ? WHERE user_id = ?", (role, utc_iso(), target_user_id))
         await db.commit()
         return cur.rowcount > 0
-
-
-async def mark_digest_sent(user_id: int, local_date: str) -> None:
-    async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute(
-            "UPDATE users SET last_digest_date_local = ?, updated_at = ? WHERE user_id = ?",
-            (local_date, utc_iso(), user_id),
-        )
-        await db.commit()
