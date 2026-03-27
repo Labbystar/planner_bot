@@ -27,12 +27,7 @@ async def create_reminder(owner_user_id: int, assigned_user_id: int, text: str, 
             (owner_user_id, assigned_user_id, text.strip(), note, category, priority, scheduled_at_utc, now, now),
         )
         await db.commit()
-        reminder_id = cur.lastrowid
-    reminder = await get_reminder(reminder_id)
-    if reminder:
-        from app.services.notifications import sync_notifications_for_reminder
-        await sync_notifications_for_reminder(reminder)
-    return reminder_id
+        return cur.lastrowid
 
 
 async def get_reminder(reminder_id: int) -> dict | None:
@@ -69,25 +64,25 @@ async def list_active_reminders(user_id: int, page: int = 1, per_page: int = 5, 
 
 async def list_assigned_to_me(user_id: int, page: int = 1, per_page: int = 5) -> tuple[list[dict], int]:
     offset = (page - 1) * per_page
-    where = "assigned_user_id = ? AND owner_user_id != ? AND status != 'cancelled'"
+    where = "assigned_user_id = ? AND status != 'cancelled'"
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cur = await db.execute(f"SELECT COUNT(*) FROM reminders WHERE {where}", (user_id, user_id))
+        cur = await db.execute(f"SELECT COUNT(*) FROM reminders WHERE {where}", (user_id,))
         total = (await cur.fetchone())[0]
         total_pages = max(1, (total + per_page - 1) // per_page)
-        cur = await db.execute(f"SELECT * FROM reminders WHERE {where} ORDER BY scheduled_at_utc DESC LIMIT ? OFFSET ?", (user_id, user_id, per_page, offset))
+        cur = await db.execute(f"SELECT * FROM reminders WHERE {where} ORDER BY scheduled_at_utc DESC LIMIT ? OFFSET ?", (user_id, per_page, offset))
         return [dict(r) for r in await cur.fetchall()], total_pages
 
 
 async def list_created_by_me(user_id: int, page: int = 1, per_page: int = 5) -> tuple[list[dict], int]:
     offset = (page - 1) * per_page
-    where = "owner_user_id = ? AND assigned_user_id != ? AND status != 'cancelled'"
+    where = "owner_user_id = ? AND status != 'cancelled'"
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        cur = await db.execute(f"SELECT COUNT(*) FROM reminders WHERE {where}", (user_id, user_id))
+        cur = await db.execute(f"SELECT COUNT(*) FROM reminders WHERE {where}", (user_id,))
         total = (await cur.fetchone())[0]
         total_pages = max(1, (total + per_page - 1) // per_page)
-        cur = await db.execute(f"SELECT * FROM reminders WHERE {where} ORDER BY scheduled_at_utc DESC LIMIT ? OFFSET ?", (user_id, user_id, per_page, offset))
+        cur = await db.execute(f"SELECT * FROM reminders WHERE {where} ORDER BY scheduled_at_utc DESC LIMIT ? OFFSET ?", (user_id, per_page, offset))
         return [dict(r) for r in await cur.fetchall()], total_pages
 
 
@@ -172,10 +167,6 @@ async def snooze(reminder_id: int, minutes: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("UPDATE reminders SET status = 'snoozed', scheduled_at_utc = ?, overdue_notified_at = NULL, updated_at = ? WHERE id = ?", (next_dt.isoformat(), utc_iso(), reminder_id))
         await db.commit()
-    reminder = await get_reminder(reminder_id)
-    if reminder:
-        from app.services.notifications import sync_notifications_for_reminder
-        await sync_notifications_for_reminder(reminder)
 
 
 async def update_text(reminder_id: int, new_text: str) -> None:
@@ -188,10 +179,6 @@ async def update_when(reminder_id: int, scheduled_at_utc: str) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("UPDATE reminders SET scheduled_at_utc = ?, status = 'active', overdue_notified_at = NULL, updated_at = ? WHERE id = ?", (scheduled_at_utc, utc_iso(), reminder_id))
         await db.commit()
-    reminder = await get_reminder(reminder_id)
-    if reminder:
-        from app.services.notifications import sync_notifications_for_reminder
-        await sync_notifications_for_reminder(reminder)
 
 
 async def update_category(reminder_id: int, category: str) -> None:

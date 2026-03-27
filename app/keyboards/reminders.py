@@ -24,6 +24,33 @@ def owner_confirmation_actions(reminder_id: int, assignee_can_edit: bool = False
     ])
 
 
+
+
+def shared_actions(reminder_id: int, assignee_can_edit: bool = False, status: str | None = None) -> InlineKeyboardMarkup:
+    lock_label = "🔓 Разрешить редакт." if not assignee_can_edit else "🔒 Запретить редакт."
+    if status == 'pending_confirmation':
+        return owner_confirmation_actions(reminder_id, assignee_can_edit)
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="👁 Принял", callback_data=f"accept:{reminder_id}"),
+            InlineKeyboardButton(text="✅ Выполнено", callback_data=f"done:{reminder_id}"),
+        ],
+        [
+            InlineKeyboardButton(text="✏️ Текст", callback_data=f"edittext:{reminder_id}"),
+            InlineKeyboardButton(text="🕓 Время", callback_data=f"edittime:{reminder_id}"),
+        ],
+        [
+            InlineKeyboardButton(text="📂 Категория", callback_data=f"editcatmenu:{reminder_id}"),
+            InlineKeyboardButton(text="🚦 Приоритет", callback_data=f"editpriomenu:{reminder_id}"),
+        ],
+        [
+            InlineKeyboardButton(text="⏰ Отложить", callback_data=f"snzmenu:{reminder_id}"),
+            InlineKeyboardButton(text="💬 Комментарий", callback_data=f"comment:{reminder_id}"),
+        ],
+        [InlineKeyboardButton(text="📎 Вложения", callback_data=f"atts:{reminder_id}")],
+        [InlineKeyboardButton(text=lock_label, callback_data=f"toggleedit:{reminder_id}"), InlineKeyboardButton(text="🗑 Удалить", callback_data=f"del:{reminder_id}")],
+    ])
+
 def owner_actions(reminder_id: int, assignee_can_edit: bool = False) -> InlineKeyboardMarkup:
     lock_label = "🔓 Разрешить редакт." if not assignee_can_edit else "🔒 Запретить редакт."
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -37,6 +64,8 @@ def owner_actions(reminder_id: int, assignee_can_edit: bool = False) -> InlineKe
 def reminder_actions(reminder_id: int, mode: str = 'owner', assignee_can_edit: bool = False, status: str | None = None) -> InlineKeyboardMarkup:
     if mode == 'assignee':
         return assignee_actions(reminder_id)
+    if mode == 'shared':
+        return shared_actions(reminder_id, assignee_can_edit, status)
     if status == 'pending_confirmation':
         return owner_confirmation_actions(reminder_id, assignee_can_edit)
     return owner_actions(reminder_id, assignee_can_edit)

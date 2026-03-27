@@ -349,7 +349,8 @@ async def send_reminders_page(target: Message | CallbackQuery, user_id: int, pag
         reminder['attachments_count'] = await count_attachments(reminder['id'])
         mode = await _mode_for_user(reminder, user_id)
         text = (header + "\n\n" if idx == 0 else "") + reminder_card(reminder, dt_local, user_label(owner, reminder.get('owner_user_id')), user_label(assignee, reminder.get('assigned_user_id')), mode)
-        kb = reminder_actions(reminder['id'], 'assignee' if mode == 'assigned' and not reminder.get('assignee_can_edit') else 'owner', bool(reminder.get('assignee_can_edit')), reminder.get('status'))
+        action_mode = 'shared' if mode == 'shared' else ('assignee' if mode == 'assigned' and not reminder.get('assignee_can_edit') else 'owner')
+        kb = reminder_actions(reminder['id'], action_mode, bool(reminder.get('assignee_can_edit')), reminder.get('status'))
         if isinstance(target, Message):
             await target.answer(text, parse_mode='HTML', reply_markup=kb)
         else:
