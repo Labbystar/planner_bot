@@ -63,6 +63,17 @@ async def init_db() -> None:
             FOREIGN KEY(reminder_id) REFERENCES reminders(id)
         )
         """)
+        await db.execute("""
+        CREATE TABLE IF NOT EXISTS reminder_comments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            reminder_id INTEGER NOT NULL,
+            author_user_id INTEGER NOT NULL,
+            comment_text TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY(reminder_id) REFERENCES reminders(id),
+            FOREIGN KEY(author_user_id) REFERENCES users(user_id)
+        )
+        """)
         await _add_column_if_missing(db, 'reminders', 'assigned_user_id', 'assigned_user_id INTEGER')
         await _add_column_if_missing(db, 'reminders', 'note', 'note TEXT')
         await _add_column_if_missing(db, 'reminders', 'assignee_can_edit', 'assignee_can_edit INTEGER NOT NULL DEFAULT 0')
@@ -70,21 +81,6 @@ async def init_db() -> None:
         await _add_column_if_missing(db, 'reminders', 'overdue_notified_at', 'overdue_notified_at TEXT')
         await _add_column_if_missing(db, 'users', 'is_active', 'is_active INTEGER NOT NULL DEFAULT 1')
         await _add_column_if_missing(db, 'users', 'role', "role TEXT NOT NULL DEFAULT 'user'")
-
-        await _add_column_if_missing(db, 'users', 'digest_enabled', 'digest_enabled INTEGER NOT NULL DEFAULT 1')
-        await _add_column_if_missing(db, 'users', 'digest_time_local', "digest_time_local TEXT NOT NULL DEFAULT '09:00'")
-        await _add_column_if_missing(db, 'users', 'last_digest_date_local', 'last_digest_date_local TEXT')
-        await db.execute("""
-        CREATE TABLE IF NOT EXISTS reminder_notifications (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            reminder_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
-            notification_type TEXT NOT NULL,
-            scheduled_at_utc TEXT NOT NULL,
-            sent_at_utc TEXT,
-            UNIQUE(reminder_id, user_id, notification_type)
-        )
-        """)
         await db.execute("UPDATE reminders SET assigned_user_id = owner_user_id WHERE assigned_user_id IS NULL")
         cur = await db.execute("SELECT COUNT(*) FROM users WHERE COALESCE(role, 'user') = 'admin'")
         if (await cur.fetchone())[0] == 0:
