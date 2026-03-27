@@ -117,6 +117,8 @@ def reminder_card(reminder: dict, when_local: datetime, owner_label: str | None 
     note = f'\n📝 {escape(reminder["note"])}' if reminder.get('note') else ''
     assignee_comment = f'\n💬 Комментарий исполнителя: {escape(reminder["assignee_comment"])}' if reminder.get('assignee_comment') else ''
     attachments = f'\n📎 Вложений: {int(reminder.get("attachments_count", 0))}' if reminder.get('attachments_count') else ''
+    comments_count = reminder.get('comments_count')
+    comments_total = f'\n💬 Комментариев: {int(comments_count)}' if comments_count else ''
     status = STATUS_LABELS.get(reminder['status'], reminder['status'])
     participants = []
     if mode == 'owner':
@@ -129,11 +131,14 @@ def reminder_card(reminder: dict, when_local: datetime, owner_label: str | None 
         if assignee_label:
             participants.append(f'👥 Исполнитель: {escape(assignee_label)}')
     participant_block = ('\n' + '\n'.join(participants)) if participants else ''
+    comments_history = ''
+    if reminder.get('comments_preview'):
+        comments_history = '\n\n<b>💬 Комментарии:</b>\n' + '\n'.join(reminder['comments_preview'])
     return (
-        f'<b>📌 {escape(reminder["text"])}<\/b>\n\n'.replace('<\\/b>', '</b>') +
-        f'📅 {when_local.strftime("%d.%m.%Y %H:%M")}\n' +
-        f'{CATEGORY_LABELS.get(reminder["category"], reminder["category"])} · {PRIORITY_LABELS.get(reminder["priority"], reminder["priority"])}\n' +
-        f'📌 Статус: {status}{participant_block}{note}{assignee_comment}{attachments}'
+        f'<b>📌 {escape(reminder["text"])}</b>\n\n'
+        + f'📅 {when_local.strftime("%d.%m.%Y %H:%M")}\n'
+        + f'{CATEGORY_LABELS.get(reminder["category"], reminder["category"])} · {PRIORITY_LABELS.get(reminder["priority"], reminder["priority"])}\n'
+        + f'📌 Статус: {status}{participant_block}{note}{assignee_comment}{attachments}{comments_total}{comments_history}'
     )
 
 

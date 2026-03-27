@@ -205,6 +205,41 @@ async def set_assignee_comment(reminder_id: int, comment: str) -> None:
         await db.commit()
 
 
+async def update_assignee(reminder_id: int, assigned_user_id: int) -> None:
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("UPDATE reminders SET assigned_user_id = ?, updated_at = ? WHERE id = ?", (assigned_user_id, utc_iso(), reminder_id))
+        await db.commit()
+
+
+async def add_comment(reminder_id: int, author_user_id: int, comment_text: str) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            """
+            INSERT INTO reminder_comments (reminder_id, author_user_id, comment_text, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (reminder_id, author_user_id, comment_text.strip(), utc_iso()),
+        )
+        await db.commit()
+        return cur.lastrowid
+
+
+async def list_comments(reminder_id: int) -> list[dict]:
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM reminder_comments WHERE reminder_id = ? ORDER BY id ASC",
+            (reminder_id,),
+        )
+        return [dict(r) for r in await cur.fetchall()]
+
+
+async def count_comments(reminder_id: int) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute("SELECT COUNT(*) FROM reminder_comments WHERE reminder_id = ?", (reminder_id,))
+        return (await cur.fetchone())[0]
+
+
 async def delete_reminder(reminder_id: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("UPDATE reminders SET status = 'cancelled', updated_at = ? WHERE id = ?", (utc_iso(), reminder_id))
